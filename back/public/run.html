@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <!--
+    back/public/run.html
+    - UI to trigger payroll actions: run batch, undo month, recalculate, run for single employee
+    - Calls API endpoints under /api/payroll
+  -->
+  <meta charset="utf-8" /><title>Run Payroll</title></head>
+<body>
+  <h1>Run Payroll</h1>
+  <label>Month (YYYY-MM): <input id="month" value="2026-01" /></label>
+  <label>Payroll Group: <input id="group" value="cut" /></label>
+  <button id="run">Run for Group</button>
+  <button id="undo">Undo Month</button>
+  <button id="recalc">Recalculate</button>
+  <h2>Single Employee</h2>
+  <label>Employee ID: <input id="empId" /></label>
+  <button id="runEmp">Run for Employee</button>
+
+  <pre id="out"></pre>
+
+  <script>
+    const out = document.getElementById('out');
+    function log(x){ out.textContent = JSON.stringify(x, null, 2); }
+
+    document.getElementById('run').onclick = async () => {
+      const month = document.getElementById('month').value;
+      const group = document.getElementById('group').value;
+      const res = await fetch('/api/payroll/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, payroll_group: group }) });
+      log(await res.json());
+    }
+
+    document.getElementById('undo').onclick = async () => {
+      const month = document.getElementById('month').value;
+      const res = await fetch('/api/payroll/undo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month }) });
+      log(await res.json());
+    }
+
+    document.getElementById('recalc').onclick = async () => {
+      const month = document.getElementById('month').value;
+      const group = document.getElementById('group').value;
+      const res = await fetch('/api/payroll/recalculate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, payroll_group: group }) });
+      log(await res.json());
+    }
+
+    document.getElementById('runEmp').onclick = async () => {
+      const month = document.getElementById('month').value;
+      const employeeId = document.getElementById('empId').value;
+      const res = await fetch('/api/payroll/generate/employee', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, employeeId }) });
+      log(await res.json());
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+/*
+  back/src/routes/payroll.js
+  - API route definitions for payroll operations
+  - Key endpoints:
+    POST /generate               -> batch payroll for group
+    POST /generate/employee      -> single employee payroll run
+    POST /undo                   -> undo payroll for a month
+    POST /recalculate            -> undo + re-run for a month
+    GET /records                 -> list payroll records
+    GET /holds, POST /holds/clear-> manage 10-day holds
+    GET /savings, POST /savings/:employeeId -> view/update savings
+    POST /schedule/start/stop    -> scheduler control
+*/
+const express = require('express');
+const router = express.Router();
+const controller = require('../controllers/payrollController');
+
+// POST /api/payroll/generate (batch by group)
+router.post('/generate', controller.generatePayrollForMonth);
+// POST /api/payroll/generate/employee (single employee)
+router.post('/generate/employee', controller.generatePayrollForEmployee);
+
+// Undo & recalculate
+router.post('/undo', controller.undoPayrollForMonth);
+router.post('/recalculate', controller.recalculatePayrollForMonth);
+
+// Holds management
+router.get('/holds', controller.getHolds);
+router.post('/holds/clear', controller.clearHold);
+
+// Savings
+router.get('/savings', controller.getSavings);
+router.post('/savings/:employeeId', controller.updateSaving);
+
+// Scheduler endpoints
+router.post('/schedule/start', controller.startMonthlyScheduler);
+router.post('/schedule/stop', controller.stopScheduler);
+router.get('/schedule', controller.getSchedulerStatus);
+
+// GET /api/payroll/records?month=YYYY-MM
+router.get('/records', controller.getPayrollRecords);
+
+module.exports = router;

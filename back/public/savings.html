@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <!--
+    back/public/savings.html
+    - UI to view and manage employee savings (accumulated totals and reset option)
+    - Calls GET /api/payroll/savings and POST /api/payroll/savings/:employeeId
+  -->
+  <meta charset="utf-8" /><title>Savings</title></head>
+<body>
+  <h1>Savings</h1>
+  <button id="load">Load</button>
+  <div id="list"></div>
+  <script>
+    const list = document.getElementById('list');
+    document.getElementById('load').onclick = async () => {
+      const res = await fetch('/api/payroll/savings');
+      const json = await res.json();
+      list.innerHTML = json.map(s => `Employee: ${s.employee ? s.employee.name : s.employee} - Amount: ${s.amount} - Accumulated: ${s.accumulated_total} <button data-id="${s.employee}">Reset Accum</button>`).join('<br/>');
+      list.querySelectorAll('button[data-id]').forEach(btn => btn.onclick = async (e) => {
+        const id = e.target.getAttribute('data-id');
+        const res = await fetch('/api/payroll/savings/' + id, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ resetAccumulated: true }) });
+        const r = await res.json();
+        alert(JSON.stringify(r));
+        document.getElementById('load').click();
+      });
+    }
+  </script>
+</body>
+</html>
