@@ -13,7 +13,7 @@ const mongoose = require('mongoose');
 const EmployeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
   base_salary: { type: Number, required: true },
-  payroll_group: { type: String, required: true }, //"cut", "no-cut", "owe"
+  payroll_group: { type: String, required: true }, //"cut", "no-cut", "monthly"
   has_20_deduction: { type: Boolean, default: false },
   has_10day_holding: { type: Boolean, default: false },
   has_debt_deduction: { type: Boolean, default: false },

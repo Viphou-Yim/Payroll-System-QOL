@@ -75,7 +75,7 @@ async function generatePayrollForMonth(req, res) {
         month,
         gross_salary: calc.gross,
         total_deductions: calc.totalDeductions,
-        bonuses: calc.totalBonuses,
+        bonuses: calc.totalBonuses ?? 0,
         net_salary: calc.net,
         deductions: calc.deductionsApplied,
         withheld_amount: calc.withheld,
@@ -147,7 +147,7 @@ async function generatePayrollForEmployee(req, res) {
       month,
       gross_salary: calc.gross,
       total_deductions: calc.totalDeductions,
-      bonuses: calc.totalBonuses,
+      bonuses: calc.totalBonuses ?? 0,
       net_salary: calc.net,
       deductions: calc.deductionsApplied,
       withheld_amount: calc.withheld,
@@ -395,12 +395,10 @@ async function deleteDeduction(req, res) {
 // Create a bonus record
 async function createBonus(req, res) {
   try {
-    const { employeeId, amount, reason, month } = req.body;
-    if (!employeeId || typeof amount !== 'number' || !month) {
-      return res.status(400).json({ message: 'employeeId, amount (number), and month (YYYY-MM) are required' });
-    }
-    const bonus = await Bonuses.create({ employee: employeeId, amount, reason, month });
-    return res.json({ message: 'Bonus created', bonus });
+    const { employeeId, type, amount, reason, month } = req.body;
+    if (!employeeId || typeof amount !== 'number' || !month) return res.status(400).json({ message: 'employeeId, type, amount (number), and month (YYYY-MM) are required' });
+    const d = await Bonuses.create({ employee: employeeId, amount, reason, month });
+    return res.json({ message: 'Bonus has been added', bonuses: d });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });

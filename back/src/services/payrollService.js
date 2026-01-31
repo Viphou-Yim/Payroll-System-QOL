@@ -10,7 +10,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeductions = [], saving = null, config = {} }) {
+function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeductions = [], saving = null, bonuses = [], config = {} }) {
   const roundDecimals = typeof config.roundDecimals === 'number' ? config.roundDecimals : 2;
   const flat20Amount = typeof config.flat20Amount === 'number' ? config.flat20Amount : parseFloat(process.env.CUT_GROUP_20_DEDUCTION_AMOUNT || '20');
   const holdingDays = typeof config.holdingDays === 'number' ? config.holdingDays : parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
@@ -26,6 +26,12 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
     gross = (base / 30) * daysWorked;
   }
   gross = round(gross, roundDecimals);
+
+  let totalBonuses = 0;
+  for (const b of bonuses || []){
+    totalBonuses += b.amount || 0;
+  }
+  gross = round(totalBonuses+ gross, roundDecimals);
 
   let totalDeductions = 0;
   const deductionsApplied = [];
@@ -68,6 +74,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
     gross,
     totalDeductions: round(totalDeductions, roundDecimals),
     net,
+    totalBonuses,
     deductionsApplied,
     withheld,
     carryoverSavings

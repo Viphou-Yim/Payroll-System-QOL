@@ -12,7 +12,7 @@ const PayrollRecordSchema = new mongoose.Schema({
   month: { type: String, required: true },
   gross_salary: { type: Number, required: true },
   total_deductions: { type: Number, required: true },
-  total_bonuses: { type: Number, required: true },
+  bonuses: { type: Number, required: true, default: 0, min: 0 },
   net_salary: { type: Number, required: true },
   deductions: [{ type: mongoose.Schema.Types.Mixed }],
   withheld_amount: { type: Number, default: 0 },
