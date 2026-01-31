@@ -12,6 +12,7 @@
 const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Deduction = require('../models/Deduction');
+const Bonuses = require('../models/Bonuses')
 const Saving = require('../models/Saving');
 const PayrollRecord = require('../models/PayrollRecord');
 const payrollService = require('../services/payrollService');
@@ -39,6 +40,7 @@ async function generatePayrollForMonth(req, res) {
     for (const emp of employees) {
       const attendance = await Attendance.findOne({ employee: emp._id, month });
       const daysWorked = attendance ? attendance.days_worked : 0;
+      const bonuses = await Bonuses.find({ employee: emp._id, month });
 
       const staticDeds = await Deduction.find({ employee: emp._id, month });
       const saving = await Saving.findOne({ employee: emp._id });
@@ -48,6 +50,7 @@ async function generatePayrollForMonth(req, res) {
         daysWorked,
         staticDeductions: staticDeds,
         saving,
+        bonuses,
         config: {
           roundDecimals: ROUND_DECIMALS,
           flat20Amount: CUT_GROUP_20_DEDUCTION_AMOUNT,
@@ -72,6 +75,7 @@ async function generatePayrollForMonth(req, res) {
         month,
         gross_salary: calc.gross,
         total_deductions: calc.totalDeductions,
+        bonuses: calc.totalBonuses,
         net_salary: calc.net,
         deductions: calc.deductionsApplied,
         withheld_amount: calc.withheld,
@@ -107,6 +111,7 @@ async function generatePayrollForEmployee(req, res) {
     // Use the employee's payroll_group to decide whether cut rules apply (default to 'cut')
     const empPayrollGroup = emp.payroll_group || 'cut';
     const applyCutsForEmployee = empPayrollGroup !== 'no-cut';
+    const bonuses = await Bonuses.find({ employee: emp._id, month });
 
     const attendance = await Attendance.findOne({ employee: emp._id, month });
     const daysWorked = attendance ? attendance.days_worked : 0;
@@ -118,6 +123,7 @@ async function generatePayrollForEmployee(req, res) {
       daysWorked,
       staticDeductions: staticDeds,
       saving,
+      bonuses,
       config: {
         roundDecimals: ROUND_DECIMALS,
         flat20Amount: CUT_GROUP_20_DEDUCTION_AMOUNT,
@@ -141,6 +147,7 @@ async function generatePayrollForEmployee(req, res) {
       month,
       gross_salary: calc.gross,
       total_deductions: calc.totalDeductions,
+      bonuses: calc.totalBonuses,
       net_salary: calc.net,
       deductions: calc.deductionsApplied,
       withheld_amount: calc.withheld,
@@ -385,6 +392,34 @@ async function deleteDeduction(req, res) {
   }
 }
 
+// Create a bonus record
+async function createBonus(req, res) {
+  try {
+    const { employeeId, amount, reason, month } = req.body;
+    if (!employeeId || typeof amount !== 'number' || !month) {
+      return res.status(400).json({ message: 'employeeId, amount (number), and month (YYYY-MM) are required' });
+    }
+    const bonus = await Bonuses.create({ employee: employeeId, amount, reason, month });
+    return res.json({ message: 'Bonus created', bonus });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Delete a bonus record
+async function deleteBonus(req, res) {
+  try {
+    const { id } = req.params;
+    const bonus = await Bonuses.findByIdAndDelete(id);
+    if (!bonus) return res.status(404).json({ message: 'Bonus not found' });
+    return res.json({ message: 'Bonus deleted', bonus });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 module.exports = {
   generatePayrollForMonth,
   getPayrollRecords,
@@ -401,5 +436,7 @@ module.exports = {
   createDeduction,
   listDeductions,
   updateDeduction,
-  deleteDeduction
+  deleteDeduction,
+  createBonus,
+  deleteBonus
 };
