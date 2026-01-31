@@ -14,10 +14,15 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const roundDecimals = typeof config.roundDecimals === 'number' ? config.roundDecimals : 2;
   const flat20Amount = typeof config.flat20Amount === 'number' ? config.flat20Amount : parseFloat(process.env.CUT_GROUP_20_DEDUCTION_AMOUNT || '20');
   const holdingDays = typeof config.holdingDays === 'number' ? config.holdingDays : parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
+  // Whether to apply cut rules (flat $20 profile deduction, 10-day holding). Default true for backward compatibility
+  const applyCuts = typeof config.applyCuts === 'boolean' ? config.applyCuts : true;
+  // payroll group (e.g., 'cut', 'no-cut', 'monthly')
+  const payrollGroup = typeof config.payrollGroup === 'string' ? config.payrollGroup : 'cut';
 
   const base = employee.base_salary;
   let gross = base;
-  if (daysWorked < 30) {
+  // For 'monthly' group, pay full base regardless of days worked (monthly pays at month end)
+  if (payrollGroup !== 'monthly' && daysWorked < 30) {
     gross = (base / 30) * daysWorked;
   }
   gross = round(gross, roundDecimals);
@@ -25,7 +30,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   let totalDeductions = 0;
   const deductionsApplied = [];
 
-  if (employee.has_20_deduction) {
+  if (applyCuts && employee.has_20_deduction) {
     const amount = round(flat20Amount, roundDecimals);
     totalDeductions += amount;
     deductionsApplied.push({ type: 'profile_20_flat', amount, reason: `flat $${amount} profile deduction` });
@@ -33,6 +38,11 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
 
   // static deductions
   for (const d of staticDeductions || []) {
+    // monthly_debt entries are only applied when running payroll for 'monthly' group AND the month is complete (daysWorked >= 30)
+    if (d.type === 'monthly_debt' && payrollGroup === 'monthly' && daysWorked < 30) {
+      // skip applying yet; will be applied when month reaches 30 days
+      continue;
+    }
     totalDeductions += d.amount;
     deductionsApplied.push({ type: d.type, amount: d.amount, reason: d.reason || '' });
   }
@@ -45,7 +55,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   }
 
   let withheld = 0;
-  if (employee.has_10day_holding) {
+  if (applyCuts && employee.has_10day_holding) {
     const holdAmount = round((base / 30) * holdingDays, roundDecimals);
     totalDeductions += holdAmount;
     withheld = holdAmount;

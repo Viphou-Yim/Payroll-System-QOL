@@ -21,6 +21,16 @@ Notes & assumptions
 - `has_10day_holding` holds (base/30 * holdingDays) and records it as a 'hold' deduction (env var `CUT_GROUP_10DAY_HOLDING_DAYS`, default 10).
 - Savings are deducted monthly and accumulated.
 
+Payroll groups
+
+- `cut` (default): applies profile $20 deduction and 10-day holding behavior.
+- `no-cut`: **disables** the profile $20 deduction and 10-day holding — employees in this group only get static deductions and savings applied.
+- `monthly`: pays full monthly base (ignore daysWorked) and applies `monthly_debt` deductions only when the month reaches 30 days (i.e., when `days_worked === 30`).
+
+Creating monthly debts
+
+- You can create `monthly_debt` deductions via the admin UI (`Run > Create Monthly Debt`) or the API: POST `/api/payroll/deductions` with body `{ employeeId, type: 'monthly_debt', amount, month: 'YYYY-MM', reason? }`. These will be applied and removed when payroll for that month is generated for the `monthly` group. Undoing the payroll will restore those `monthly_debt` deductions.
+
 New endpoints
 
 - POST `/api/payroll/generate/employee` → run payroll for a single employee. Body: `{ "employeeId": "<id>", "month": "YYYY-MM" }`

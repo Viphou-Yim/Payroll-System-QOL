@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 
 const DeductionSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-  type: { type: String, enum: ['savings', 'debt', 'damage', 'hold', 'other'], default: 'other' },
+  type: { type: String, enum: ['savings', 'debt', 'damage', 'hold', 'monthly_debt', 'other'], default: 'other' },
   amount: { type: Number, required: true },
   reason: { type: String },
   month: { type: String, required: true } // month deducted (YYYY-MM)

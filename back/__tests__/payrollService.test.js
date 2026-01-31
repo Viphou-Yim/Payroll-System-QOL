@@ -38,4 +38,14 @@ describe('payrollService.calculatePayrollForEmployee', () => {
     expect(res.totalDeductions).toBe(353.33);
     expect(res.net).toBe(0);
   });
+
+  test('No-cut group ignores profile and holding', () => {
+    const emp = { base_salary: 30000, has_20_deduction: true, has_10day_holding: true };
+    const res = calculatePayrollForEmployee({ employee: emp, daysWorked: 30, staticDeductions: [], saving: null, config: { roundDecimals: 2, flat20Amount: 20, holdingDays: 10, applyCuts: false } });
+
+    expect(res.gross).toBe(30000);
+    expect(res.totalDeductions).toBe(0);
+    expect(res.deductionsApplied.length).toBe(0);
+    expect(res.net).toBe(30000);
+  });
 });

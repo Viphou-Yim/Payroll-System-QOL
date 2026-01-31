@@ -28,6 +28,13 @@ router.post('/recalculate', controller.recalculatePayrollForMonth);
 router.get('/holds', controller.getHolds);
 router.post('/holds/clear', controller.clearHold);
 
+// Deductions - allow creating deductions including `monthly_debt`
+router.post('/deductions', controller.createDeduction);
+// List, update, delete deductions (admin)
+router.get('/deductions', controller.listDeductions);
+router.patch('/deductions/:id', controller.updateDeduction);
+router.delete('/deductions/:id', controller.deleteDeduction);
+
 // Savings
 router.get('/savings', controller.getSavings);
 router.post('/savings/:employeeId', controller.updateSaving);
