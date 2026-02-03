@@ -12,8 +12,22 @@ const PORT = process.env.PORT || 4000;
 const MONGO = process.env.MONGODB_URI || 'mongodb://localhost:27017/payroll_db';
 
 mongoose.connect(MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => {
+  .then(async () => {
     console.log('Connected to MongoDB');
+
+    // Initialize persisted schedulers (if any) with a runner that calls payroll generator
+    const schedulerService = require('./services/schedulerService');
+    const payrollController = require('./controllers/payrollController');
+    try {
+      await schedulerService.init(async (group) => {
+        const month = new Date().toISOString().slice(0,7);
+        await payrollController.generatePayrollForMonth({ body: { month, payroll_group: group } }, { json: () => {} });
+      });
+      console.log('Scheduler service initialized');
+    } catch (err) {
+      console.error('Scheduler init error', err);
+    }
+
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => {

@@ -14,19 +14,34 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/payrollController');
+const auth = require('../middleware/auth');
+const sessionAuth = require('../middleware/sessionAuth');
+const { attendanceValidator, generateMonthValidator, generateEmployeeValidator, scheduleStartValidator } = require('../middleware/validation');
+
+// require authenticated session or API key for all payroll endpoints
+router.use(sessionAuth.requireAuth);
+// admin-only actions will use sessionAuth.requireAdmin selectively
+
 
 // POST /api/payroll/generate (batch by group)
-router.post('/generate', controller.generatePayrollForMonth);
+router.post('/generate', sessionAuth.requireAdmin, generateMonthValidator, controller.generatePayrollForMonth);
 // POST /api/payroll/generate/employee (single employee)
-router.post('/generate/employee', controller.generatePayrollForEmployee);
+router.post('/generate/employee', sessionAuth.requireAdmin, generateEmployeeValidator, controller.generatePayrollForEmployee);
 
-// Undo & recalculate
-router.post('/undo', controller.undoPayrollForMonth);
-router.post('/recalculate', controller.recalculatePayrollForMonth);
+// Attendance endpoints (admin only to create/update)
+router.post('/attendance', sessionAuth.requireAdmin, attendanceValidator, controller.upsertAttendance);
+router.get('/attendance', controller.listAttendance);
+
+// Undo & recalculate (admin only)
+router.post('/undo', sessionAuth.requireAdmin, controller.undoPayrollForMonth);
+router.post('/recalculate', sessionAuth.requireAdmin, controller.recalculatePayrollForMonth);
 
 // Holds management
 router.get('/holds', controller.getHolds);
 router.post('/holds/clear', controller.clearHold);
+
+// Employees - list employees for admin UI
+router.get('/employees', controller.listEmployees);
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);
@@ -39,12 +54,14 @@ router.delete('/deductions/:id', controller.deleteDeduction);
 router.get('/savings', controller.getSavings);
 router.post('/savings/:employeeId', controller.updateSaving);
 
-// Scheduler endpoints
-router.post('/schedule/start', controller.startMonthlyScheduler);
+// Scheduler endpoints (uses persisted scheduler)
+router.post('/schedule/start', scheduleStartValidator, controller.startMonthlyScheduler);
 router.post('/schedule/stop', controller.stopScheduler);
 router.get('/schedule', controller.getSchedulerStatus);
 
 // GET /api/payroll/records?month=YYYY-MM
 router.get('/records', controller.getPayrollRecords);
+// Server-side CSV export: GET /api/payroll/export?month=YYYY-MM
+router.get('/export', controller.exportPayrollCsv);
 
 module.exports = router;
