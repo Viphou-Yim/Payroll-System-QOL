@@ -12,6 +12,7 @@ describe('Payroll routes', () => {
 
     const res = await request(app)
       .post('/api/payroll/deductions')
+      .set('x-api-key', 'test-api-key')
       .send({ employeeId: 'emp1', type: 'monthly_debt', amount: 500, month: '2026-01', reason: 'loan' })
       .expect(200);
 
@@ -21,7 +22,7 @@ describe('Payroll routes', () => {
   });
 
   test('POST /api/payroll/deductions returns 400 on missing fields', async () => {
-    const res = await request(app).post('/api/payroll/deductions').send({ employeeId: 'emp1', type: 'monthly_debt', month: '2026-01' }).expect(400);
+    const res = await request(app).post('/api/payroll/deductions').set('x-api-key', 'test-api-key').send({ employeeId: 'emp1', type: 'monthly_debt', month: '2026-01' }).expect(400);
     expect(res.body.message).toMatch(/required/);
   });
 });

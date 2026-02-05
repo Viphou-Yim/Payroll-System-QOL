@@ -10,9 +10,6 @@ describe('Auth and session', () => {
   afterEach(() => jest.resetAllMocks());
 
   test('POST /api/auth/login and /me', async () => {
-    process.env.ADMIN_USER = 'admin';
-    process.env.ADMIN_PASSWORD = 'passwd';
-
     const agent = request.agent(app);
     await agent.post('/api/auth/login').send({ username: 'admin', password: 'passwd' }).expect(200);
     const me = await agent.get('/api/auth/me').expect(200);
@@ -25,9 +22,6 @@ describe('Auth and session', () => {
   });
 
   test('POST /api/payroll/attendance allowed after login', async () => {
-    process.env.ADMIN_USER = 'admin';
-    process.env.ADMIN_PASSWORD = 'passwd';
-
     Employee.findById.mockResolvedValue({ _id: 'emp1', name: 'Alice' });
     Attendance.findOneAndUpdate.mockResolvedValue({ _id: 'a1', employee: 'emp1', month: '2026-02', days_worked: 10 });
 

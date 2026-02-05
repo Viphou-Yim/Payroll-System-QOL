@@ -592,6 +592,7 @@ async function deleteBonus(req, res) {
 module.exports = {
   generatePayrollForMonth,
   getPayrollRecords,
+  exportPayrollCsv,
   generatePayrollForEmployee,
   startMonthlyScheduler,
   stopScheduler,
@@ -600,6 +601,7 @@ module.exports = {
   recalculatePayrollForMonth,
   getHolds,
   clearHold,
+  listEmployees,
   getSavings,
   updateSaving,
   upsertAttendance,

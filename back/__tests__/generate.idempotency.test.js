@@ -16,6 +16,7 @@ describe('Generate payroll idempotency', () => {
 
     const res = await request(app)
       .post('/api/payroll/generate')
+      .set('x-api-key', 'test-api-key')
       .set('Idempotency-Key', 'abc')
       .send({ month: '2026-02', payroll_group: 'cut' })
       .expect(409);
@@ -31,6 +32,7 @@ describe('Generate payroll idempotency', () => {
 
     const res = await request(app)
       .post('/api/payroll/generate')
+      .set('x-api-key', 'test-api-key')
       .set('Idempotency-Key', 'abc')
       .send({ month: '2026-02', payroll_group: 'cut' })
       .expect(200);

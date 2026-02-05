@@ -12,6 +12,7 @@ describe('Scheduler endpoints', () => {
 
     const res = await request(app)
       .post('/api/payroll/schedule/start')
+      .set('x-api-key', 'test-api-key')
       .send({ payroll_group: 'cut', cronExpression: '*/5 * * * *' })
       .expect(200);
 
@@ -25,6 +26,7 @@ describe('Scheduler endpoints', () => {
 
     const res = await request(app)
       .post('/api/payroll/schedule/stop')
+      .set('x-api-key', 'test-api-key')
       .send({ payroll_group: 'cut' })
       .expect(200);
 
