@@ -6,89 +6,162 @@
     - run batch, undo month, recalculate, run for single employee
     - Calls API endpoints under /api/payroll
   -->
-  <meta charset="utf-8" /><title>Run Payroll</title></head>
+  <meta charset="utf-8" />
+  <title>Run Payroll</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .menu { background: #f0f0f0; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+    .menu button { padding: 10px 15px; margin-right: 10px; margin-bottom: 10px; cursor: pointer; border: 2px solid #333; background: #fff; border-radius: 4px; color: #000; font-weight: bold; }
+    .menu button:hover { background: #efefef; border-color: #000; }
+    .menu button.active { background: #007bff; color: white; border-color: #007bff; }
+    .section { display: none; padding: 20px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 20px; background: #fafafa; }
+    .section.active { display: block; }
+    label { display: block; margin: 10px 0; }
+    input, select, button { padding: 6px; }
+    button { background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    .section h3 { margin-top: 0; color: #333; }
+  </style>
+</head>
 <body>
   <h1>Run Payroll</h1>
-  <label>Month (YYYY-MM): <input id="month" value="2026-01" /></label>
-  <label>Payroll Group:
-    <select id="group" title="Select payroll group: 'no-cut' will skip cut rules (profile $20 & 10-day holding).">
-      <option value="cut">cut</option>
-      <option value="no-cut">no-cut</option>
-      <option value="monthly">monthly</option>
-    </select>
-  </label>
-  <p><small><strong>no-cut</strong>: skip profile $20 deduction and 10-day holding; only static deductions and savings will apply.<br>
-  <strong>monthly</strong>: pays full monthly base and applies any `monthly_debt` entries at month end (when days reach 30). Enter debts during the month as deduction records with type `monthly_debt` and the same YYYY-MM to have them applied at month end.</small></p>
-  <button id="run">Run for Group</button>
-  <button id="undo">Undo Month</button>
-  <button id="recalc">Recalculate</button>
-
-  <h2>Monthly Debts</h2>
-  <label>Month to view: <input id="debtsMonth" value="2026-01" /></label>
-  <label>Filter employee name: <input id="filterEmployeeName" placeholder="e.g. Alice" /></label>
-  <label>Page size: <input id="pageSize" type="number" value="10" min="1" max="100" /></label>
-  <button id="loadDebts">Load Monthly Debts</button>
-  <div id="debtsList"></div>
+  
+  <div class="menu">
+    <h3>Choose an Operation:</h3>
+    <button class="menu-btn active" data-section="batch">Batch Payroll Generation</button>
+    <button class="menu-btn" data-section="single">Single Employee Payroll</button>
+    <button class="menu-btn" data-section="monthly-debt">Create/Manage Monthly Debts</button>
+    <button class="menu-btn" data-section="manage">Undo / Recalculate</button>
+  </div>
 
   <!-- Confirmation modal -->
-  <div id="confirmModal" style="display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+  <div id="confirmModal" style="display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:1000;">
     <div style="background:#fff;padding:16px;border-radius:6px;max-width:420px;margin:auto;">
       <p id="confirmMessage">Are you sure?</p>
       <button id="confirmYes">Yes</button>
       <button id="confirmNo">No</button>
     </div>
   </div>
-  <h2>Single Employee</h2>
-  <label>Employee ID: <input id="empId" /></label>
-  <button id="runEmp">Run for Employee</button>
 
-  <h2>Create Monthly Debt</h2>
-  <label>Employee ID: <input id="debtEmpId" /></label>
-  <label>Amount: <input id="debtAmount" type="number" /></label>
-  <label>Month (YYYY-MM): <input id="debtMonth" value="2026-01" /></label>
-  <label>Reason: <input id="debtReason" /></label>
-  <button id="createDebt">Create Monthly Debt</button>
+  <!-- Section: Batch Payroll Generation -->
+  <div id="batch" class="section active">
+    <h3>Batch Payroll Generation</h3>
+    <p><small>Run payroll for all employees in a selected group for a specific month.</small></p>
+    <label>Month (YYYY-MM): <input id="month" value="2026-01" /></label>
+    <label>Payroll Group:
+      <select id="group" title="Select payroll group: 'no-cut' will skip cut rules (profile $20 & 10-day holding).">
+        <option value="cut">cut</option>
+        <option value="no-cut">no-cut</option>
+        <option value="monthly">monthly</option>
+      </select>
+    </label>
+    <p><small><strong>no-cut</strong>: skip profile $20 deduction and 10-day holding; only static deductions and savings will apply.<br>
+    <strong>monthly</strong>: pays full monthly base and applies any `monthly_debt` entries at month end (when days reach 30).</small></p>
+    <button id="run">Run for Group</button>
+    <pre id="batchOut"></pre>
+  </div>
 
-  <pre id="out"></pre>
+  <!-- Section: Single Employee Payroll -->
+  <div id="single" class="section">
+    <h3>Single Employee Payroll</h3>
+    <p><small>Process payroll for one specific employee for a selected month.</small></p>
+    <label>Month (YYYY-MM): <input id="empMonth" value="2026-01" /></label>
+    <label>Employee ID: <input id="empId" /></label>
+    <button id="runEmp">Run for Employee</button>
+    <pre id="singleOut"></pre>
+  </div>
+
+  <!-- Section: Create/Manage Monthly Debts -->
+  <div id="monthly-debt" class="section">
+    <h3>Create/Manage Monthly Debts</h3>
+    <p><small>Add or manage monthly debt entries that will be applied at month end.</small></p>
+    
+    <h4>Create New Monthly Debt</h4>
+    <label>Employee ID: <input id="debtEmpId" /></label>
+    <label>Amount: <input id="debtAmount" type="number" /></label>
+    <label>Month (YYYY-MM): <input id="debtMonth" value="2026-01" /></label>
+    <label>Reason: <input id="debtReason" /></label>
+    <button id="createDebt">Create Monthly Debt</button>
+    <pre id="createDebtOut"></pre>
+
+    <hr style="margin: 20px 0;">
+    <h4>View & Manage Monthly Debts</h4>
+    <label>Month to view: <input id="debtsMonth" value="2026-01" /></label>
+    <label>Filter employee name: <input id="filterEmployeeName" placeholder="e.g. Alice" /></label>
+    <label>Page size: <input id="pageSize" type="number" value="10" min="1" max="100" /></label>
+    <button id="loadDebts">Load Monthly Debts</button>
+    <div id="debtsList"></div>
+  </div>
+
+  <!-- Section: Undo / Recalculate -->
+  <div id="manage" class="section">
+    <h3>Undo / Recalculate Payroll</h3>
+    <p><small>Undo an entire month's payroll or recalculate with updated settings.</small></p>
+    <label>Month (YYYY-MM): <input id="managMonth" value="2026-01" /></label>
+    <label>Payroll Group (for recalculate):
+      <select id="manageGroup">
+        <option value="cut">cut</option>
+        <option value="no-cut">no-cut</option>
+        <option value="monthly">monthly</option>
+      </select>
+    </label>
+    <button id="undo">Undo Month</button>
+    <button id="recalc">Recalculate Month</button>
+    <pre id="manageOut"></pre>
+  </div>
 
   <script>
-    const out = document.getElementById('out');
-    function log(x){ out.textContent = JSON.stringify(x, null, 2); }
+    // Menu Navigation
+    document.querySelectorAll('.menu-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const section = e.target.getAttribute('data-section');
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.getElementById(section).classList.add('active');
+        document.querySelectorAll('.menu-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+      });
+    });
 
+    // Batch Payroll
     document.getElementById('run').onclick = async () => {
       const month = document.getElementById('month').value;
       const group = document.getElementById('group').value;
       const res = await fetch('/api/payroll/generate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, payroll_group: group }) });
-      log(await res.json());
+      document.getElementById('batchOut').textContent = JSON.stringify(await res.json(), null, 2);
     }
 
-    document.getElementById('undo').onclick = async () => {
-      const month = document.getElementById('month').value;
-      const res = await fetch('/api/payroll/undo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month }) });
-      log(await res.json());
-    }
-
-    document.getElementById('recalc').onclick = async () => {
-      const month = document.getElementById('month').value;
-      const group = document.getElementById('group').value;
-      const res = await fetch('/api/payroll/recalculate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, payroll_group: group }) });
-      log(await res.json());
-    }
-
+    // Single Employee
     document.getElementById('runEmp').onclick = async () => {
-      const month = document.getElementById('month').value;
+      const month = document.getElementById('empMonth').value;
       const employeeId = document.getElementById('empId').value;
       const res = await fetch('/api/payroll/generate/employee', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, employeeId }) });
-      log(await res.json());
+      document.getElementById('singleOut').textContent = JSON.stringify(await res.json(), null, 2);
     }
 
+    // Create Monthly Debt
     document.getElementById('createDebt').onclick = async () => {
       const employeeId = document.getElementById('debtEmpId').value;
       const amount = parseFloat(document.getElementById('debtAmount').value);
       const month = document.getElementById('debtMonth').value;
       const reason = document.getElementById('debtReason').value;
       const res = await fetch('/api/payroll/deductions', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ employeeId, type: 'monthly_debt', amount, month, reason }) });
-      log(await res.json());
+      document.getElementById('createDebtOut').textContent = JSON.stringify(await res.json(), null, 2);
+    }
+
+    // Undo Month
+    document.getElementById('undo').onclick = async () => {
+      const month = document.getElementById('managMonth').value;
+      const res = await fetch('/api/payroll/undo', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month }) });
+      document.getElementById('manageOut').textContent = JSON.stringify(await res.json(), null, 2);
+    }
+
+    // Recalculate
+    document.getElementById('recalc').onclick = async () => {
+      const month = document.getElementById('managMonth').value;
+      const group = document.getElementById('manageGroup').value;
+      const res = await fetch('/api/payroll/recalculate', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ month, payroll_group: group }) });
+      document.getElementById('manageOut').textContent = JSON.stringify(await res.json(), null, 2);
     }
 
     // Pagination state
@@ -107,21 +180,21 @@
       }
       debtsCurrentPage = payload.page || page;
       const rows = list.map(d => `
-        <div data-id="${d._id}" style="border:1px solid #ddd;padding:8px;margin:4px;">
+        <div data-id="${d._id}" style="border:1px solid #ddd;padding:8px;margin:4px;background:#fff;border-radius:4px;">
           <div><strong>ID:</strong> ${d._id}</div>
           <div><strong>Employee:</strong> ${d.employee && d.employee.name ? d.employee.name : (d.employee && d.employee._id ? d.employee._id : d.employee)}</div>
-          <div><strong>Amount:</strong> <input class="debt-amount" value="${d.amount}" /></div>
-          <div><strong>Reason:</strong> <input class="debt-reason" value="${d.reason || ''}" /></div>
-          <button class="save-debt">Save</button>
+          <div><strong>Amount:</strong> <input class="debt-amount" value="${d.amount}" style="width:100px;" /></div>
+          <div><strong>Reason:</strong> <input class="debt-reason" value="${d.reason || ''}" style="width:200px;" /></div>
+          <button class="save-debt" style="margin-right:5px;">Save</button>
           <button class="delete-debt">Delete</button>
         </div>
       `).join('');
       // Pagination controls
       const pageControls = `
-        <div style="margin:8px 0;">
-          <button id="prevPage">Prev</button>
+        <div style="margin:8px 0;padding:10px;background:#fff;border-radius:4px;border:1px solid #ddd;">
+          <button id="prevPage" style="margin-right:5px;">Prev</button>
           <span> Page <strong>${debtsCurrentPage}</strong> of <strong>${payload.pages}</strong> </span>
-          <button id="nextPage">Next</button>
+          <button id="nextPage" style="margin-left:5px;">Next</button>
         </div>
       `;
       container.innerHTML = pageControls + rows;
@@ -133,7 +206,6 @@
         const amount = parseFloat(node.querySelector('.debt-amount').value);
         const reason = node.querySelector('.debt-reason').value;
         const r = await fetch(`/api/payroll/deductions/${id}`, { method: 'PATCH', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ amount, reason }) });
-        log(await r.json());
         loadDebtsPage(debtsCurrentPage);
       }));
 
@@ -144,7 +216,6 @@
         showConfirm(`Delete deduction ${id}?`, async (confirmed) => {
           if (!confirmed) return;
           const r = await fetch(`/api/payroll/deductions/${id}`, { method: 'DELETE' });
-          log(await r.json());
           loadDebtsPage(debtsCurrentPage);
         });
       }));
