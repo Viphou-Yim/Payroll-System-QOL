@@ -8,35 +8,86 @@
   <script>window.API_BASE = 'http://localhost:4000';</script>
 </head>
 <body>
-  <h1>Payroll Admin</h1>
-
-  <div class="login">
-    <label>Username: <input id="loginUser" placeholder="admin"/></label>
-    <label>Password: <input id="loginPass" type="password" placeholder="password"/></label>
-    <button id="loginBtn">Login</button>
-    <button id="logoutBtn">Logout</button>
-    <span id="loginStatus"></span>
-  </div>
-
-  <nav>
-    <a href="#attendance">Attendance</a> |
-    <a href="#records">Payroll Records</a> |
-    <a href="#run">Run Payroll</a> |
-    <a href="#scheduler">Scheduler</a> |
-    <a href="#deductions">Deductions</a> |
-    <a href="#savings">Savings</a>
-  </nav>
-
-  <main>
+  <div class="app-shell">
+    <div id="toast" class="toast" role="status" aria-live="polite" style="display:none"></div>
+    <header class="app-header">
+      <div class="header-left">
+        <h1 class="app-title">Payroll Admin</h1>
+      </div>
+      <div class="header-right" id="authControls">
+        <div class="login" id="loginForm">
+          <label for="loginUser">Username:</label>
+          <input id="loginUser" placeholder="admin"/>
+          <label for="loginPass">Password:</label>
+          <input id="loginPass" type="password" placeholder="password"/>
+          <button id="loginBtn">Sign in</button>
+          <span id="loginStatus"></span>
+        </div>
+        <div class="logged-in" id="loggedInState" style="display:none">
+          <span>Logged in as <strong>admin</strong></span>
+          <button id="logoutBtn">Logout</button>
+        </div>
+      </div>
+    </header>
+    <nav class="tab-bar">
+      <span class="tab-group">Operations:</span>
+      <a href="#attendance" class="tab" id="tab-attendance">Attendance</a>
+      <a href="#run" class="tab" id="tab-run">Run Payroll</a>
+      <span class="tab-group">Records:</span>
+      <a href="#records" class="tab" id="tab-records">Payroll Records</a>
+      <a href="#deductions" class="tab" id="tab-deductions">Deductions</a>
+      <a href="#savings" class="tab" id="tab-savings">Savings</a>
+      <span class="tab-group">System:</span>
+      <a href="#scheduler" class="tab" id="tab-scheduler">Scheduler</a>
+      <a href="#login" class="tab" id="tab-login">Login/Signup</a>
+    </nav>
+    <div class="centered-content">
+      <main>
     <!-- Pages are the same markup as the original admin.html for parity -->
+    <section id="sec-login" class="page" data-route="login" style="display:none">
+      <div class="section" style="max-width:400px;margin:40px auto;">
+        <h2>Sign In / Sign Up</h2>
+        <form id="loginSignupForm">
+          <label for="lsUsername">Username</label>
+          <input id="lsUsername" name="username" autocomplete="username" required placeholder="admin" />
+          <label for="lsPassword">Password</label>
+          <input id="lsPassword" name="password" type="password" autocomplete="current-password" required placeholder="password" />
+          <div style="display:flex;gap:12px;margin-top:16px;">
+            <button type="submit" id="lsLoginBtn">Sign In</button>
+            <button type="button" id="lsSignupBtn" class="secondary">Sign Up</button>
+          </div>
+          <div id="lsStatus" style="margin-top:12px;color:#b00;font-size:0.95em;"></div>
+        </form>
+      </div>
+    </section>
     <section id="sec-attendance" class="page" data-route="attendance" style="display:none">
       <div class="section">
         <h2>Attendance</h2>
-        <label>Employee: <select id="employeeSelect"><option>Loading...</option></select></label>
-        <label>Month (YYYY-MM): <input id="attMonth" placeholder="2026-02"/></label>
-        <label>Days worked: <input id="attDays" type="number" value="0"/></label>
-        <label>Days absent: <input id="attAbsent" type="number" value="0"/></label>
-        <button id="saveAtt">Save Attendance</button>
+        <form id="attendanceForm" style="max-width:520px">
+          <div class="form-grid two-col">
+            <div>
+              <label for="employeeSelect">Employee</label>
+              <select id="employeeSelect" disabled><option>Loading...</option></select>
+            </div>
+            <div>
+              <label for="attMonth">Month</label>
+              <input id="attMonth" type="month" required />
+              <div id="attTotalDays" class="field-help">Total days in month: --</div>
+            </div>
+          </div>
+          <div class="form-grid">
+            <div>
+              <label for="attDays">Days worked</label>
+              <input id="attDays" type="number" min="0" step="1" value="0" required />
+            </div>
+            <div>
+              <label for="attAbsent">Days absent</label>
+              <input id="attAbsent" type="number" min="0" step="1" value="0" required />
+            </div>
+          </div>
+          <div id="attValidation" style="color:#b00;font-size:0.95em;margin-bottom:8px;"></div>
+          <button id="saveAtt" type="submit">Save Attendance</button>
+        </form>
         <div id="attMsg"></div>
       </div>
     </section>
@@ -44,10 +95,47 @@
     <section id="sec-records" class="page" data-route="records" style="display:none">
       <div class="section">
         <h2>Payroll Records</h2>
-        <label>Month (YYYY-MM): <input id="recMonth" placeholder="2026-02"/></label>
-        <button id="loadRecords">Load Records</button>
-        <button id="exportCsv">Export CSV (client)</button>
-        <button id="exportServerCsv">Export CSV (server)</button>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recMonth">Month</label>
+            <input id="recMonth" type="month" />
+          </div>
+          <div class="field-help">Load records for a specific month or leave blank for latest.</div>
+        </div>
+        <div class="form-actions">
+          <button id="loadRecords" type="button">Load Records</button>
+          <div class="dropdown">
+            <button id="exportMenuBtn" type="button" class="secondary">Export ▾</button>
+            <div id="exportMenu" class="dropdown-menu" style="display:none">
+              <button id="exportCsv" type="button">Export (client)</button>
+              <button id="exportServerCsv" type="button">Export (server)</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recSearch">Employee</label>
+            <input id="recSearch" placeholder="Search by name" />
+          </div>
+          <div>
+            <label for="recStatus">Status</label>
+            <select id="recStatus">
+              <option value="">All</option>
+              <option value="paid">Paid (net &gt; 0)</option>
+              <option value="zero">Zero/negative</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recNetMin">Net pay min</label>
+            <input id="recNetMin" type="number" step="0.01" placeholder="e.g., 1000" />
+          </div>
+          <div>
+            <label for="recNetMax">Net pay max</label>
+            <input id="recNetMax" type="number" step="0.01" placeholder="e.g., 5000" />
+          </div>
+        </div>
         <div id="recordsList"></div>
         <div id="recordDetails" style="margin-top:10px; white-space: pre-wrap; background:#f9f9f9; padding:8px; display:none"></div>
       </div>
@@ -56,23 +144,55 @@
     <section id="sec-run" class="page" data-route="run" style="display:none">
       <div class="section">
         <h2>Run Payroll for Employee</h2>
-        <label>Employee: <select id="runEmployeeSelect"><option>Loading...</option></select></label>
-        <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
-        <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
-        <label><input type="checkbox" id="runForce"/> Force</label>
-        <button id="runPayrollEmp">Run Payroll</button>
-        <div id="runResp"></div>
+        <form id="runPayrollForm" style="max-width:520px">
+          <div class="form-grid two-col">
+            <div>
+              <label for="runEmployeeSelect">Employee</label>
+              <select id="runEmployeeSelect" disabled><option>Loading...</option></select>
+            </div>
+            <div>
+              <label for="runMonth">Month</label>
+              <input id="runMonth" type="month" required />
+            </div>
+          </div>
+          <div class="toggle">
+            <input type="checkbox" id="runForce" />
+            <label for="runForce">Force run (overrides existing record)</label>
+          </div>
+          <div id="runForceWarning" class="warning-text" style="display:none">Warning: This will regenerate payroll for the selected month.</div>
+          <details class="advanced">
+            <summary>Advanced options</summary>
+            <label for="runIdemp">Idempotency key (optional)</label>
+            <input id="runIdemp" placeholder="optional key" />
+          </details>
+          <div id="runPreview" class="preview-card">Preview: select employee and month.</div>
+          <div id="runValidation" class="field-error"></div>
+          <button id="runPayrollEmp" type="submit">Run Payroll</button>
+        </form>
+        <pre id="runResp" class="response-block"></pre>
       </div>
     </section>
 
     <section id="sec-scheduler" class="page" data-route="scheduler" style="display:none">
       <div class="section">
         <h2>Scheduler</h2>
-        <label>Payroll group: <input id="schedGroup" value="cut"/></label>
-        <label>Cron expression: <input id="schedExpr" value="0 5 1 * *"/></label>
-        <button id="startSched">Start</button>
-        <button id="stopSched">Stop</button>
-        <button id="statusSched">Status</button>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="schedGroup">Payroll group</label>
+            <input id="schedGroup" value="cut" />
+          </div>
+          <div>
+            <label for="schedExpr">Cron expression</label>
+            <input id="schedExpr" value="0 5 1 * *" />
+            <div class="field-help">Runs at 05:00 on day 1 of every month. <a href="https://crontab.guru/" target="_blank" rel="noopener noreferrer">Cron format</a></div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button id="startSched" type="button">Start</button>
+          <button id="stopSched" type="button" class="secondary">Stop</button>
+          <button id="statusSched" type="button" class="secondary">Status</button>
+          <span id="schedStatus" class="status-badge">Unknown</span>
+        </div>
         <div id="schedMsg"></div>
       </div>
     </section>
@@ -80,13 +200,35 @@
     <section id="sec-deductions" class="page" data-route="deductions" style="display:none">
       <div class="section">
         <h2>Deductions</h2>
-        <label>Employee: <select id="dedEmployeeSelect"><option>Loading...</option></select></label>
-        <label>Type: <select id="dedType"><option value="debt">debt</option><option value="damage">damage</option><option value="monthly_debt">monthly_debt</option><option value="other">other</option></select></label>
-        <label>Amount: <input id="dedAmount" type="number"/></label>
-        <label>Month (YYYY-MM): <input id="dedMonth" placeholder="2026-02"/></label>
-        <label>Reason: <input id="dedReason"/></label>
-        <button id="createDed">Create Deduction</button>
-        <button id="loadDeds">Load Deductions</button>
+        <form id="deductionsForm" style="max-width:520px">
+          <div class="form-grid two-col">
+            <div>
+              <label for="dedEmployeeSelect">Employee</label>
+              <select id="dedEmployeeSelect" disabled><option>Loading...</option></select>
+            </div>
+            <div>
+              <label for="dedMonth">Month</label>
+              <input id="dedMonth" type="month" required />
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="dedType">Type</label>
+              <select id="dedType"><option value="debt">debt</option><option value="damage">damage</option><option value="monthly_debt">monthly_debt</option><option value="other">other</option></select>
+            </div>
+            <div>
+              <label for="dedAmount">Amount</label>
+              <input id="dedAmount" type="number" min="0" step="0.01" placeholder="e.g., 120.00" required />
+            </div>
+          </div>
+          <label for="dedReason">Reason</label>
+          <input id="dedReason" placeholder="Optional" />
+          <div id="dedValidation" class="field-error"></div>
+          <div class="form-actions">
+            <button id="createDed" type="submit">Create Deduction</button>
+            <button id="loadDeds" type="button" class="secondary">Load Deductions</button>
+          </div>
+        </form>
         <div id="dedList"></div>
       </div>
     </section>
@@ -94,11 +236,38 @@
     <section id="sec-savings" class="page" data-route="savings" style="display:none">
       <div class="section">
         <h2>Savings</h2>
+        <div class="section-desc">View and manage employee savings contributions.</div>
+        <div id="savingsSummary" class="summary-cards"></div>
         <button id="loadSavings">Load Savings</button>
         <div id="savingsList"></div>
       </div>
     </section>
   </main>
+
+  <div id="dedEditModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dedEditTitle">
+      <div class="modal-header">
+        <h3 id="dedEditTitle">Edit Deduction</h3>
+        <button id="dedEditClose" type="button" class="icon-btn" aria-label="Close edit modal">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.4 4.3 19.7 2.89 18.29 9.17 12 2.89 5.71 4.3 4.3l6.29 6.29 6.29-6.29z"/></svg>
+        </button>
+      </div>
+      <form id="dedEditForm" class="modal-body">
+        <input id="dedEditId" type="hidden" />
+        <label for="dedEditAmount">Amount</label>
+        <input id="dedEditAmount" type="number" min="0" step="0.01" required />
+        <div id="dedEditAmountError" class="field-error" style="display:none"></div>
+        <label for="dedEditReason">Reason</label>
+        <input id="dedEditReason" placeholder="Optional" />
+        <div id="dedEditValidation" class="field-error"></div>
+        <div class="form-actions">
+          <button id="dedEditSave" type="submit">Save Changes</button>
+          <button id="dedEditCancel" type="button" class="secondary">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

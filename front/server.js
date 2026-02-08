@@ -6,8 +6,8 @@ const PORT = process.env.PORT || 3000;
 // Serve static front-end
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Fallback to index.html for SPA routes
-app.get('*', (req, res) => {
+// Fallback to index.html for SPA routes without using path patterns
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
