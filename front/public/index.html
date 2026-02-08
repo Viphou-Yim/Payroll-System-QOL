@@ -29,7 +29,7 @@
         </div>
       </div>
     </header>
-    <nav class="tab-bar">
+    <nav class="tab-bar" id="mainNav" hidden>
       <span class="tab-group">Operations:</span>
       <a href="#attendance" class="tab" id="tab-attendance">Attendance</a>
       <a href="#run" class="tab" id="tab-run">Run Payroll</a>
@@ -46,17 +46,40 @@
     <!-- Pages are the same markup as the original admin.html for parity -->
     <section id="sec-login" class="page" data-route="login" style="display:none">
       <div class="section" style="max-width:400px;margin:40px auto;">
-        <h2>Sign In / Sign Up</h2>
-        <form id="loginSignupForm">
-          <label for="lsUsername">Username</label>
-          <input id="lsUsername" name="username" autocomplete="username" required placeholder="admin" />
+        <h2>Sign In</h2>
+        <div class="section-desc">Sign in to access the payroll system.</div>
+        <form id="loginFormPage">
+          <label for="lsUsername">Username or email</label>
+          <input id="lsUsername" name="username" autocomplete="username" required placeholder="admin@example.com" />
           <label for="lsPassword">Password</label>
           <input id="lsPassword" name="password" type="password" autocomplete="current-password" required placeholder="password" />
           <div style="display:flex;gap:12px;margin-top:16px;">
             <button type="submit" id="lsLoginBtn">Sign In</button>
-            <button type="button" id="lsSignupBtn" class="secondary">Sign Up</button>
+            <a href="#signup" class="tab" style="padding:12px 0">Create account</a>
           </div>
           <div id="lsStatus" style="margin-top:12px;color:#b00;font-size:0.95em;"></div>
+        </form>
+      </div>
+    </section>
+    <section id="sec-signup" class="page" data-route="signup" style="display:none">
+      <div class="section" style="max-width:420px;margin:40px auto;">
+        <h2>Create Account</h2>
+        <div class="section-desc">Enter your details to create an account.</div>
+        <form id="signupForm">
+          <label for="suUsername">Username</label>
+          <input id="suUsername" autocomplete="username" required placeholder="yourname" />
+          <label for="suEmail">Email</label>
+          <input id="suEmail" type="email" autocomplete="email" required placeholder="you@example.com" />
+          <label for="suPassword">Password</label>
+          <input id="suPassword" type="password" autocomplete="new-password" required placeholder="password" />
+          <div class="field-help">At least 8 characters, with a letter and a number.</div>
+          <label for="suConfirm">Confirm password</label>
+          <input id="suConfirm" type="password" autocomplete="new-password" required placeholder="password" />
+          <div class="form-actions">
+            <button type="submit" id="suSignupBtn">Sign Up</button>
+            <a href="#login" class="tab" style="padding:12px 0">Back to sign in</a>
+          </div>
+          <div id="suStatus" class="field-error"></div>
         </form>
       </div>
     </section>

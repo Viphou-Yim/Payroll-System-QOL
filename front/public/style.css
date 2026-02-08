@@ -4,13 +4,17 @@ body { font-family: Arial, sans-serif; margin: 0; background:#f7f8fb; color:#222
 .centered-content { max-width: 960px; margin: 0 auto; }
 .app-header { display: flex; justify-content: space-between; align-items: center; padding: 24px 0 16px 0; border-bottom: 1px solid #eee; }
 .app-title { font-size: 2.2rem; font-weight: 700; margin: 0; letter-spacing: -1px; }
-.header-right { display: flex; align-items: center; gap: 16px; }
+.header-right { display: flex; align-items: center; gap: 16px; transition: opacity 0.2s ease, transform 0.2s ease; }
+.auth-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 .login, .logged-in { margin-bottom: 0; }
-.tab-bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 0 24px 0; border-bottom: 1.5px solid #e0e0e0; margin-bottom: 24px; align-items: center; }
+.tab-bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 0 24px 0; border-bottom: 1.5px solid #e0e0e0; margin-bottom: 24px; align-items: center; transition: opacity 0.2s ease, transform 0.2s ease; }
+.nav-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 .tab { font-size: 1.1rem; font-weight: 500; color: var(--accent); text-decoration: none; padding: 10px 6px; border-bottom: 2px solid transparent; transition: border-color 0.2s; display: inline-flex; align-items: center; }
 .tab.active { border-bottom: 2px solid var(--accent); color: #222; }
 .tab-group { font-size: 1rem; font-weight: 600; color: #888; margin-right: 8px; margin-left: 16px; letter-spacing: 0.5px; }
 .section { border: 1px solid #eee; padding: 24px; margin-bottom: 32px; border-radius:8px; background:#fff; box-shadow: 0 1px 4px #0001; }
+.page-load { animation: cardIn 0.35s ease; }
+@keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 h2 { font-size: 1.5rem; font-weight: 600; margin: 0 0 24px 0; }
 label { display:block; margin-bottom: 12px; font-weight: 500; }
 input, select { padding:12px; width: 100%; max-width: 340px; box-sizing: border-box; margin-bottom: 16px; font-size: 1rem; }

@@ -2,6 +2,8 @@ const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password';
 const ADMIN_ROLE = process.env.ADMIN_ROLE || 'admin';
 
+const users = [];
+
 async function login(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ message: 'username and password are required' });
@@ -11,7 +13,27 @@ async function login(req, res) {
     req.session.user = { username, role: ADMIN_ROLE };
     return res.json({ message: 'ok', user: req.session.user });
   }
+  const match = users.find(u => (u.username === username || u.email === username) && u.password === password);
+  if (match) {
+    req.session.user = { username: match.username, role: 'user' };
+    return res.json({ message: 'ok', user: req.session.user });
+  }
   return res.status(401).json({ message: 'invalid credentials' });
+}
+
+async function signup(req, res) {
+  const { username, email, password } = req.body || {};
+  if (!username || !email || !password) {
+    return res.status(400).json({ message: 'username, email, and password are required' });
+  }
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const passwordOk = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password);
+  if (!emailOk) return res.status(400).json({ message: 'invalid email format' });
+  if (!passwordOk) return res.status(400).json({ message: 'password must be at least 8 characters and include a letter and a number' });
+  const exists = users.find(u => u.username === username || u.email === email);
+  if (exists) return res.status(409).json({ message: 'username or email already exists' });
+  users.push({ username, email, password });
+  return res.json({ message: 'signup ok' });
 }
 
 async function logout(req, res) {
@@ -27,4 +49,4 @@ function me(req, res) {
   return res.status(401).json({ message: 'not authenticated' });
 }
 
-module.exports = { login, logout, me };
+module.exports = { login, logout, me, signup };

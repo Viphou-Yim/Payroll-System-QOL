@@ -205,18 +205,23 @@
     } else {
       showAuthState(false);
     }
+    showRoute();
   }
 
   function showAuthState(isLoggedIn, user) {
     const loginForm = document.getElementById('loginForm');
     const loggedInState = document.getElementById('loggedInState');
+    const mainNav = document.getElementById('mainNav');
+    window.__authLoggedIn = isLoggedIn;
     if (isLoggedIn) {
       loginForm.style.display = 'none';
       loggedInState.style.display = '';
       loggedInState.querySelector('span').textContent = `Logged in as ${user ? user.username : 'admin'}`;
+      if (mainNav) mainNav.hidden = false;
     } else {
       loginForm.style.display = '';
       loggedInState.style.display = 'none';
+      if (mainNav) mainNav.hidden = true;
     }
   }
 
@@ -250,30 +255,46 @@
   });
 
   function showRoute() {
-    const hash = (window.location.hash || '#attendance').replace('#','');
+    const rawHash = (window.location.hash || '').replace('#','');
+    const authed = window.__authLoggedIn === true;
+    let route = rawHash || (authed ? 'attendance' : 'login');
+    if (!authed && route !== 'login' && route !== 'signup') route = 'login';
+    if (authed && (route === 'login' || route === 'signup')) route = 'attendance';
+    if (!rawHash && !authed) {
+      // keep landing page without hash for login
+    }
+    const authControls = document.getElementById('authControls');
+    if (authControls) authControls.classList.toggle('auth-hidden', route === 'login' || route === 'signup');
+    const mainNav = document.getElementById('mainNav');
+    if (mainNav) mainNav.classList.toggle('nav-hidden', route === 'login' || route === 'signup');
     document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
-    const el = document.querySelector(`[data-route="${hash}"]`);
-    if (el) el.style.display = '';
+    const el = document.querySelector(`[data-route="${route}"]`);
+    if (el) {
+      el.style.display = '';
+      el.classList.add('page-load');
+      setTimeout(() => el.classList.remove('page-load'), 400);
+    }
     // Highlight active tab
     document.querySelectorAll('.tab-bar .tab').forEach(tab => {
       tab.classList.remove('active');
     });
-    const activeTab = document.getElementById('tab-' + hash);
+    const activeTab = document.getElementById('tab-' + route);
     if (activeTab) activeTab.classList.add('active');
     // Grouping: visually separate
-    if (hash === 'attendance') { loadEmployees(); }
-    if (hash === 'records') { renderRecords(); }
-    if (hash === 'run') { loadEmployees(); }
-    if (hash === 'deductions') { loadDeductions(); loadEmployees(); }
-    if (hash === 'savings') { loadSavings(); }
-    if (hash === 'login') { setupLoginSignup(); }
+    if (route === 'attendance') { loadEmployees(); }
+    if (route === 'records') { renderRecords(); }
+    if (route === 'run') { loadEmployees(); }
+    if (route === 'deductions') { loadDeductions(); loadEmployees(); }
+    if (route === 'savings') { loadSavings(); }
+    if (route === 'login') { setupLoginPage(); }
+    if (route === 'signup') { setupSignupPage(); }
   }
 
-  function setupLoginSignup() {
-    const form = document.getElementById('loginSignupForm');
+  function setupLoginPage() {
+    const form = document.getElementById('loginFormPage');
     const status = document.getElementById('lsStatus');
     const loginBtn = document.getElementById('lsLoginBtn');
-    const signupBtn = document.getElementById('lsSignupBtn');
+    if (!form) return;
     form.onsubmit = async (e) => {
       e.preventDefault();
       loginBtn.disabled = true;
@@ -290,15 +311,43 @@
         status.textContent = 'Invalid credentials';
       }
     };
-    signupBtn.onclick = async () => {
+  }
+
+  function setupSignupPage() {
+    const form = document.getElementById('signupForm');
+    const status = document.getElementById('suStatus');
+    const signupBtn = document.getElementById('suSignupBtn');
+    if (!form) return;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
       signupBtn.disabled = true;
       status.textContent = 'Signing up…';
-      const username = form.lsUsername.value;
-      const password = form.lsPassword.value;
-      const r = await fetchJson('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+      const username = form.suUsername.value;
+      const email = form.suEmail.value;
+      const password = form.suPassword.value;
+      const confirm = form.suConfirm.value;
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const passwordOk = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password);
+      if (!emailOk) {
+        status.textContent = 'Enter a valid email address.';
+        signupBtn.disabled = false;
+        return;
+      }
+      if (!passwordOk) {
+        status.textContent = 'Password must be at least 8 characters and include a letter and a number.';
+        signupBtn.disabled = false;
+        return;
+      }
+      if (password !== confirm) {
+        status.textContent = 'Passwords do not match.';
+        signupBtn.disabled = false;
+        return;
+      }
+      const r = await fetchJson('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, email, password }) });
       signupBtn.disabled = false;
       if (r.status === 200) {
         status.textContent = 'Signup successful! You can now sign in.';
+        window.location.hash = '#login';
       } else {
         status.textContent = r.body && r.body.message ? r.body.message : 'Signup failed';
       }
