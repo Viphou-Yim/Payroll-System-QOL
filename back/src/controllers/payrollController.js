@@ -291,6 +291,61 @@ async function getPayrollRecords(req, res) {
   res.json(records);
 }
 
+// Update a single payroll record fields
+async function updatePayrollRecord(req, res) {
+  try {
+    const { id } = req.params;
+    const fields = ['gross_salary', 'total_deductions', 'net_salary', 'bonuses', 'withheld_amount', 'carryover_savings'];
+    const update = {};
+    for (const f of fields) {
+      if (typeof req.body[f] === 'number' && !Number.isNaN(req.body[f])) {
+        update[f] = req.body[f];
+      }
+    }
+    const rec = await PayrollRecord.findByIdAndUpdate(id, update, { new: true });
+    if (!rec) return res.status(404).json({ message: 'record not found' });
+    return res.json(rec);
+  } catch (err) {
+    console.error('updatePayrollRecord error', err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Delete a single payroll record and revert related effects
+async function deletePayrollRecord(req, res) {
+  try {
+    const { id } = req.params;
+    const record = await PayrollRecord.findById(id).populate('employee');
+    if (!record) return res.status(404).json({ message: 'record not found' });
+
+    const emp = record.employee;
+    if (emp) {
+      const saving = await Saving.findOne({ employee: emp._id });
+      if (saving && typeof record.carryover_savings === 'number') {
+        const prev = Math.max(0, (record.carryover_savings || 0) - (saving.amount || 0));
+        saving.accumulated_total = prev;
+        await saving.save();
+      }
+
+      if (Array.isArray(record.deductions)) {
+        for (const d of record.deductions) {
+          if (d.type === 'monthly_debt') {
+            await Deduction.create({ employee: emp._id, type: 'monthly_debt', amount: d.amount, reason: d.reason || 'restored from delete', month: record.month });
+          }
+        }
+      }
+
+      await Deduction.deleteMany({ employee: emp._id, month: record.month, type: 'hold' });
+    }
+
+    await PayrollRecord.deleteOne({ _id: id });
+    return res.json({ message: 'record deleted' });
+  } catch (err) {
+    console.error('deletePayrollRecord error', err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 // Server-side CSV export for payroll records. Supports ?month=YYYY-MM
 async function exportPayrollCsv(req, res) {
   try {
@@ -592,6 +647,8 @@ async function deleteBonus(req, res) {
 module.exports = {
   generatePayrollForMonth,
   getPayrollRecords,
+  updatePayrollRecord,
+  deletePayrollRecord,
   exportPayrollCsv,
   generatePayrollForEmployee,
   startMonthlyScheduler,

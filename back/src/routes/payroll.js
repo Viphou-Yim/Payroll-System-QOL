@@ -61,6 +61,9 @@ router.get('/schedule', controller.getSchedulerStatus);
 
 // GET /api/payroll/records?month=YYYY-MM
 router.get('/records', controller.getPayrollRecords);
+// Update/delete a single record (admin only)
+router.patch('/records/:id', sessionAuth.requireAdmin, controller.updatePayrollRecord);
+router.delete('/records/:id', sessionAuth.requireAdmin, controller.deletePayrollRecord);
 // Server-side CSV export: GET /api/payroll/export?month=YYYY-MM
 router.get('/export', controller.exportPayrollCsv);
 

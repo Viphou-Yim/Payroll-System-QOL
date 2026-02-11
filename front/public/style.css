@@ -62,6 +62,12 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 .table-wrap { max-height: 360px; overflow: auto; border: 1px solid #eee; border-radius: 6px; margin-top: 16px; }
 .table-wrap table { margin-top: 0; }
 .table-wrap th { position: sticky; top: 0; background: #fff; z-index: 1; }
+.summary-table-wrap { margin-top: 16px; border: 1px solid #eee; border-radius: 8px; overflow: auto; }
+.summary-table { width: 100%; border-collapse: collapse; }
+.summary-table th { text-align: left; padding: 10px 12px; background: #fafafa; font-size: 0.95rem; border-bottom: 2px solid #ddd; }
+.summary-table td { padding: 10px 12px; font-size: 0.95rem; border-bottom: 2px solid #ddd; }
+.summary-actions { display: inline-flex; gap: 8px; }
+.summary-pagination { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .dropdown { position: relative; }
 .dropdown-menu { position: absolute; top: 42px; right: 0; background: #fff; border: 1px solid #e6e6e6; border-radius: 6px; box-shadow: 0 6px 16px #0001; padding: 6px; min-width: 180px; z-index: 10; }
 .dropdown-menu button { width: 100%; text-align: left; margin: 0; border: none; background: transparent; color: #222; padding: 8px 10px; }

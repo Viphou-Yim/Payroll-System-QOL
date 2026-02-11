@@ -284,6 +284,7 @@
     // Grouping: visually separate
     if (route === 'attendance') { loadEmployees(); }
     if (route === 'records') { renderRecords(); }
+    if (route === 'records-summary') { loadRecordsSummary(); }
     if (route === 'run') { loadEmployees(); }
     if (route === 'deductions') { loadDeductions(); loadEmployees(); }
     if (route === 'savings') { loadSavings(); }
@@ -394,6 +395,204 @@
     };
   }
   window.addEventListener('hashchange', showRoute);
+
+  // Records summary
+  const summaryState = { records: [], page: 1, pageSize: 8 };
+  const recSumBody = $('recSummaryBody');
+  const recSumStatus = $('recSumStatus');
+  let currentSummaryRecord = null;
+
+  function formatDate(value) {
+    if (!value) return '--';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString();
+  }
+
+  function renderSummaryTable() {
+    if (!recSumBody) return;
+    recSumBody.innerHTML = '';
+    const start = (summaryState.page - 1) * summaryState.pageSize;
+    const end = start + summaryState.pageSize;
+    const slice = summaryState.records.slice(start, end);
+    if (slice.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 8;
+      td.textContent = 'No records found.';
+      tr.appendChild(td);
+      recSumBody.appendChild(tr);
+      return;
+    }
+    slice.forEach(r => {
+      const tr = document.createElement('tr');
+      const empName = r.employee?.name || r.employee || '--';
+      const group = r.employee?.payroll_group || '--';
+      tr.innerHTML = `
+        <td>${r._id || '--'}</td>
+        <td>${empName}</td>
+        <td>${group}</td>
+        <td>${r.month || '--'}</td>
+        <td>${r.net_salary ?? '--'}</td>
+        <td>${r.gross_salary ?? '--'}</td>
+        <td>${formatDate(r.createdAt)}</td>
+        <td></td>
+      `;
+      const actions = document.createElement('div');
+      actions.className = 'summary-actions';
+      const viewBtn = document.createElement('button');
+      viewBtn.type = 'button';
+      viewBtn.textContent = 'View';
+      viewBtn.addEventListener('click', () => openSummaryView(r));
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'secondary';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', () => openSummaryEdit(r));
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'secondary';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', () => deleteSummaryRecord(r));
+      actions.appendChild(viewBtn);
+      actions.appendChild(editBtn);
+      actions.appendChild(delBtn);
+      tr.lastElementChild.appendChild(actions);
+      recSumBody.appendChild(tr);
+    });
+    const pageEl = $('recSumPage');
+    if (pageEl) pageEl.textContent = `Page ${summaryState.page}`;
+  }
+
+  async function loadRecordsSummary() {
+    if (!recSumBody) return;
+    if (recSumStatus) {
+      recSumStatus.style.display = '';
+      recSumStatus.textContent = 'Loading';
+    }
+    const month = $('recSumMonth')?.value;
+    const url = month ? `/api/payroll/records?month=${encodeURIComponent(month)}` : '/api/payroll/records';
+    const r = await fetchJson(url);
+    if (r.status !== 200) {
+      recSumBody.innerHTML = '<tr><td colspan="8">Error loading records.</td></tr>';
+      if (recSumStatus) recSumStatus.textContent = 'Error';
+      return;
+    }
+    summaryState.records = Array.isArray(r.body) ? r.body : [];
+    summaryState.records.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    summaryState.page = 1;
+    renderSummaryTable();
+    if (recSumStatus) recSumStatus.style.display = 'none';
+  }
+
+  if ($('loadSummary')) $('loadSummary').addEventListener('click', loadRecordsSummary);
+  if ($('recSumPrev')) $('recSumPrev').addEventListener('click', () => {
+    if (summaryState.page > 1) {
+      summaryState.page -= 1;
+      renderSummaryTable();
+    }
+  });
+  if ($('recSumNext')) $('recSumNext').addEventListener('click', () => {
+    const maxPage = Math.max(1, Math.ceil(summaryState.records.length / summaryState.pageSize));
+    if (summaryState.page < maxPage) {
+      summaryState.page += 1;
+      renderSummaryTable();
+    }
+  });
+
+  const viewModal = $('recSummaryViewModal');
+  const editModal = $('recSummaryEditModal');
+  function openSummaryView(record) {
+    currentSummaryRecord = record;
+    const body = $('recSummaryViewBody');
+    if (body) {
+      const emp = record.employee?.name || record.employee || '--';
+      const group = record.employee?.payroll_group || '--';
+      body.textContent = `Payroll ID: ${record._id}\nEmployee: ${emp}\nGroup: ${group}\nMonth: ${record.month}\nGross: ${record.gross_salary}\nTotal deductions: ${record.total_deductions}\nNet: ${record.net_salary}\nBonuses: ${record.bonuses}\nWithheld: ${record.withheld_amount}\nCarryover savings: ${record.carryover_savings}\nCreated: ${formatDate(record.createdAt)}`;
+    }
+    if (viewModal) viewModal.setAttribute('aria-hidden', 'false');
+  }
+  function closeSummaryView() { if (viewModal) viewModal.setAttribute('aria-hidden', 'true'); }
+  function openSummaryEdit(record) {
+    currentSummaryRecord = record;
+    if ($('recEditGross')) $('recEditGross').value = record.gross_salary ?? 0;
+    if ($('recEditDeductions')) $('recEditDeductions').value = record.total_deductions ?? 0;
+    if ($('recEditNet')) $('recEditNet').value = record.net_salary ?? 0;
+    if ($('recEditBonuses')) $('recEditBonuses').value = record.bonuses ?? 0;
+    if ($('recEditWithheld')) $('recEditWithheld').value = record.withheld_amount ?? 0;
+    if ($('recEditCarry')) $('recEditCarry').value = record.carryover_savings ?? 0;
+    if ($('recEditStatus')) $('recEditStatus').textContent = '';
+    if (editModal) editModal.setAttribute('aria-hidden', 'false');
+  }
+  function closeSummaryEdit() { if (editModal) editModal.setAttribute('aria-hidden', 'true'); }
+
+  if ($('recSummaryViewClose')) $('recSummaryViewClose').addEventListener('click', closeSummaryView);
+  if ($('recSummaryEditClose')) $('recSummaryEditClose').addEventListener('click', closeSummaryEdit);
+  if ($('recEditCancel')) $('recEditCancel').addEventListener('click', closeSummaryEdit);
+  if (viewModal) viewModal.addEventListener('click', (e) => { if (e.target?.getAttribute('data-close') === 'true') closeSummaryView(); });
+  if (editModal) editModal.addEventListener('click', (e) => { if (e.target?.getAttribute('data-close') === 'true') closeSummaryEdit(); });
+
+  async function deleteSummaryRecord(record) {
+    if (!record || !record._id) return;
+    if (!confirm('Delete this payroll record?')) return;
+    const r = await fetchJson(`/api/payroll/records/${record._id}`, { method: 'DELETE' });
+    if (r.status === 200) {
+      closeSummaryView();
+      closeSummaryEdit();
+      loadRecordsSummary();
+    } else {
+      showToast(r.body?.message || 'Delete failed');
+    }
+  }
+
+  if ($('recSummaryViewDelete')) $('recSummaryViewDelete').addEventListener('click', () => deleteSummaryRecord(currentSummaryRecord));
+  if ($('recSummaryViewEdit')) $('recSummaryViewEdit').addEventListener('click', () => openSummaryEdit(currentSummaryRecord));
+  if ($('recSummaryViewRecalc')) $('recSummaryViewRecalc').addEventListener('click', async () => {
+    if (!currentSummaryRecord) return;
+    const employeeId = currentSummaryRecord.employee?._id || currentSummaryRecord.employee;
+    const month = currentSummaryRecord.month;
+    const r = await fetchJson('/api/payroll/generate/employee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId, month, force: true })
+    });
+    if (r.status === 200) {
+      showToast('Payroll recalculated');
+      closeSummaryView();
+      loadRecordsSummary();
+    } else {
+      const msg = r.body?.message || 'Recalculate failed';
+      const statusEl = $('recSummaryViewStatus');
+      if (statusEl) statusEl.textContent = msg;
+    }
+  });
+
+  if ($('recSummaryEditForm')) {
+    $('recSummaryEditForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!currentSummaryRecord) return;
+      const payload = {
+        gross_salary: parseFloat($('recEditGross').value),
+        total_deductions: parseFloat($('recEditDeductions').value),
+        net_salary: parseFloat($('recEditNet').value),
+        bonuses: parseFloat($('recEditBonuses').value),
+        withheld_amount: parseFloat($('recEditWithheld').value),
+        carryover_savings: parseFloat($('recEditCarry').value)
+      };
+      const r = await fetchJson(`/api/payroll/records/${currentSummaryRecord._id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (r.status === 200) {
+        closeSummaryEdit();
+        loadRecordsSummary();
+      } else {
+        const statusEl = $('recEditStatus');
+        if (statusEl) statusEl.textContent = r.body?.message || 'Update failed';
+      }
+    });
+  }
 
   // Deductions
   const dedEditModal = $('dedEditModal');
