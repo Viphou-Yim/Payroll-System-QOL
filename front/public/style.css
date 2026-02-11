@@ -15,7 +15,7 @@ body { font-family: Arial, sans-serif; margin: 0; background:#f7f8fb; color:#222
 .user-menu-item:hover { background: #f5f7fb; }
 .user-menu:focus-within .user-menu-list,
 .user-menu:hover .user-menu-list { display: flex; }
-.tab-bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 0 24px 0; border-bottom: 1.5px solid #e0e0e0; margin-bottom: 24px; align-items: center; transition: opacity 0.2s ease, transform 0.2s ease; }
+.tab-bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 0 24px 0; border-bottom: 1.5px solid #e0e0e0; margin-bottom: 24px; align-items: center; justify-content: center; transition: opacity 0.2s ease, transform 0.2s ease; }
 .nav-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 .tab { font-size: 1.1rem; font-weight: 500; color: var(--accent); text-decoration: none; padding: 10px 6px; border-bottom: 2px solid transparent; transition: border-color 0.2s; display: inline-flex; align-items: center; }
 .tab.active { border-bottom: 2px solid var(--accent); color: #222; }
