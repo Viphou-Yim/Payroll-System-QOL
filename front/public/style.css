@@ -90,3 +90,6 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 @media (max-width:700px){ .summary-cards { grid-template-columns: 1fr; } }
 @media (min-width: 700px) { .columns { display:flex; gap:24px } .column { flex:1 } }
 @media (max-width:700px){ .app-shell { padding: 0 8px; } .centered-content { padding: 0 4px; } .tab-bar { gap: 8px; } .app-title { font-size: 1.4rem; } .form-grid.two-col { grid-template-columns: 1fr; } }
+.employee-search-box { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e6eaf2; border-radius: 6px; background: #f5f7fb; }
+.emp-search-input { padding: 8px 10px; font-size: 0.95rem; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin: 0 !important; max-width: none !important; }
+.emp-search-input::placeholder { color: #999; }

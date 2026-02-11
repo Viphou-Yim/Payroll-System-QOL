@@ -12,6 +12,7 @@ const mongoose = require('mongoose');
 
 const EmployeeSchema = new mongoose.Schema({
   name: { type: String, required: true },
+  phone: { type: String, default: '' },
   base_salary: { type: Number, required: true },
   payroll_group: { type: String, required: true }, //"cut", "no-cut", "monthly"
   has_20_deduction: { type: Boolean, default: false },

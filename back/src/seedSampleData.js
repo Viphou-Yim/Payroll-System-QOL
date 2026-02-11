@@ -23,8 +23,8 @@ async function seed() {
   await Saving.deleteMany({});
 
   // Create two employees in cut group
-  const emp1 = await Employee.create({ name: 'Alice', base_salary: 30000, payroll_group: 'cut', has_20_deduction: true, has_10day_holding: false });
-  const emp2 = await Employee.create({ name: 'Bob', base_salary: 24000, payroll_group: 'cut', has_20_deduction: false, has_10day_holding: true });
+  const emp1 = await Employee.create({ name: 'Alice Johnson', phone: '555-1234', base_salary: 30000, payroll_group: 'cut', has_20_deduction: true, has_10day_holding: false });
+  const emp2 = await Employee.create({ name: 'Bob Smith', phone: '555-5678', base_salary: 24000, payroll_group: 'cut', has_20_deduction: false, has_10day_holding: true });
 
   // Attendance for 2026-01
   await Attendance.create({ employee: emp1._id, month: '2026-01', days_worked: 30, days_absent: 0 });

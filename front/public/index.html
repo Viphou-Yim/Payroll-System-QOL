@@ -129,8 +129,13 @@
         <form id="attendanceForm" style="max-width:520px">
           <div class="form-grid two-col">
             <div>
-              <label for="employeeSelect">Employee</label>
-              <select id="employeeSelect" disabled><option>Loading...</option></select>
+              <label>Employee Search</label>
+              <div class="employee-search-box">
+                <input id="attEmpFirst" placeholder="First Name" class="emp-search-input" />
+                <input id="attEmpLast" placeholder="Last Name" class="emp-search-input" />
+                <input id="attEmpPhone" placeholder="Phone" class="emp-search-input" />
+                <select id="employeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+              </div>
             </div>
             <div>
               <label for="attMonth">Month</label>
@@ -249,8 +254,13 @@
         <form id="runPayrollForm" style="max-width:520px">
           <div class="form-grid two-col">
             <div>
-              <label for="runEmployeeSelect">Employee</label>
-              <select id="runEmployeeSelect" disabled><option>Loading...</option></select>
+              <label>Employee Search</label>
+              <div class="employee-search-box">
+                <input id="runEmpFirst" placeholder="First Name" class="emp-search-input" />
+                <input id="runEmpLast" placeholder="Last Name" class="emp-search-input" />
+                <input id="runEmpPhone" placeholder="Phone" class="emp-search-input" />
+                <select id="runEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+              </div>
             </div>
             <div>
               <label for="runMonth">Month</label>
@@ -305,8 +315,13 @@
         <form id="deductionsForm" style="max-width:520px">
           <div class="form-grid two-col">
             <div>
-              <label for="dedEmployeeSelect">Employee</label>
-              <select id="dedEmployeeSelect" disabled><option>Loading...</option></select>
+              <label>Employee Search</label>
+              <div class="employee-search-box">
+                <input id="dedEmpFirst" placeholder="First Name" class="emp-search-input" />
+                <input id="dedEmpLast" placeholder="Last Name" class="emp-search-input" />
+                <input id="dedEmpPhone" placeholder="Phone" class="emp-search-input" />
+                <select id="dedEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+              </div>
             </div>
             <div>
               <label for="dedMonth">Month</label>
