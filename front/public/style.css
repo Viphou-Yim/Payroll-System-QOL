@@ -7,6 +7,14 @@ body { font-family: Arial, sans-serif; margin: 0; background:#f7f8fb; color:#222
 .header-right { display: flex; align-items: center; gap: 16px; transition: opacity 0.2s ease, transform 0.2s ease; }
 .auth-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 .login, .logged-in { margin-bottom: 0; }
+.user-menu { position: relative; display: inline-flex; align-items: center; }
+.user-trigger { background: transparent; border: 1px solid #ddd; color: #222; padding: 8px 12px; border-radius: 999px; cursor: pointer; min-height: 38px; font-weight: 600; margin-top: 0; }
+.user-trigger:hover { background: #f5f7fb; }
+.user-menu-list { position: absolute; top: 44px; right: 0; background: #fff; border: 1px solid #e6e6e6; border-radius: 8px; box-shadow: 0 8px 18px #0001; padding: 6px 8px; min-width: 200px; z-index: 12; display: none; flex-direction: column; gap: 4px; }
+.user-menu-item { display: block; width: 100%; text-align: left; background: transparent; border: none; color: #222; padding: 8px 10px; border-radius: 6px; text-decoration: none; font-size: 0.98rem; cursor: pointer; margin: 0; min-height: auto; }
+.user-menu-item:hover { background: #f5f7fb; }
+.user-menu:focus-within .user-menu-list,
+.user-menu:hover .user-menu-list { display: flex; }
 .tab-bar { display: flex; flex-wrap: wrap; gap: 18px; padding: 16px 0 24px 0; border-bottom: 1.5px solid #e0e0e0; margin-bottom: 24px; align-items: center; transition: opacity 0.2s ease, transform 0.2s ease; }
 .nav-hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
 .tab { font-size: 1.1rem; font-weight: 500; color: var(--accent); text-decoration: none; padding: 10px 6px; border-bottom: 2px solid transparent; transition: border-color 0.2s; display: inline-flex; align-items: center; }

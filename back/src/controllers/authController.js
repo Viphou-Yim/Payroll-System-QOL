@@ -1,5 +1,5 @@
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password';
+let adminPassword = process.env.ADMIN_PASSWORD || 'password';
 const ADMIN_ROLE = process.env.ADMIN_ROLE || 'admin';
 
 const users = [];
@@ -8,7 +8,7 @@ async function login(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ message: 'username and password are required' });
   // direct comparison (no bcrypt) for simplicity as requested
-  if (username === ADMIN_USER && password === ADMIN_PASSWORD) {
+  if (username === ADMIN_USER && password === adminPassword) {
     // set session user
     req.session.user = { username, role: ADMIN_ROLE };
     return res.json({ message: 'ok', user: req.session.user });
@@ -49,4 +49,33 @@ function me(req, res) {
   return res.status(401).json({ message: 'not authenticated' });
 }
 
-module.exports = { login, logout, me, signup };
+async function changePassword(req, res) {
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'currentPassword and newPassword are required' });
+  }
+  const passwordOk = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword);
+  if (!passwordOk) {
+    return res.status(400).json({ message: 'password must be at least 8 characters and include a letter and a number' });
+  }
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: 'not authenticated' });
+  }
+  const username = req.session.user.username;
+  if (username === ADMIN_USER) {
+    if (currentPassword !== adminPassword) {
+      return res.status(400).json({ message: 'current password is incorrect' });
+    }
+    adminPassword = newPassword;
+    return res.json({ message: 'password updated' });
+  }
+  const user = users.find(u => u.username === username);
+  if (!user) return res.status(404).json({ message: 'user not found' });
+  if (user.password !== currentPassword) {
+    return res.status(400).json({ message: 'current password is incorrect' });
+  }
+  user.password = newPassword;
+  return res.json({ message: 'password updated' });
+}
+
+module.exports = { login, logout, me, signup, changePassword };

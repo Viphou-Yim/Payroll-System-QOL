@@ -212,11 +212,12 @@
     const loginForm = document.getElementById('loginForm');
     const loggedInState = document.getElementById('loggedInState');
     const mainNav = document.getElementById('mainNav');
+    const userMenuName = document.getElementById('userMenuName');
     window.__authLoggedIn = isLoggedIn;
     if (isLoggedIn) {
       loginForm.style.display = 'none';
       loggedInState.style.display = '';
-      loggedInState.querySelector('span').textContent = `Logged in as ${user ? user.username : 'admin'}`;
+      if (userMenuName) userMenuName.textContent = user ? user.username : 'admin';
       if (mainNav) mainNav.hidden = false;
     } else {
       loginForm.style.display = '';
@@ -288,6 +289,7 @@
     if (route === 'savings') { loadSavings(); }
     if (route === 'login') { setupLoginPage(); }
     if (route === 'signup') { setupSignupPage(); }
+    if (route === 'account') { setupAccountPage(); }
   }
 
   function setupLoginPage() {
@@ -350,6 +352,44 @@
         window.location.hash = '#login';
       } else {
         status.textContent = r.body && r.body.message ? r.body.message : 'Signup failed';
+      }
+    };
+  }
+
+  function setupAccountPage() {
+    const form = document.getElementById('accountForm');
+    const status = document.getElementById('acctStatus');
+    const saveBtn = document.getElementById('acctSaveBtn');
+    if (!form) return;
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      saveBtn.disabled = true;
+      status.textContent = 'Saving…';
+      const currentPassword = form.acctCurrent.value;
+      const newPassword = form.acctNew.value;
+      const confirm = form.acctConfirm.value;
+      const passwordOk = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword);
+      if (!passwordOk) {
+        status.textContent = 'Password must be at least 8 characters and include a letter and a number.';
+        saveBtn.disabled = false;
+        return;
+      }
+      if (newPassword !== confirm) {
+        status.textContent = 'Passwords do not match.';
+        saveBtn.disabled = false;
+        return;
+      }
+      const r = await fetchJson('/api/auth/change-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword })
+      });
+      saveBtn.disabled = false;
+      if (r.status === 200) {
+        status.textContent = 'Password updated.';
+        form.reset();
+      } else {
+        status.textContent = r.body && r.body.message ? r.body.message : 'Update failed';
       }
     };
   }

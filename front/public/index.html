@@ -24,8 +24,15 @@
           <span id="loginStatus"></span>
         </div>
         <div class="logged-in" id="loggedInState" style="display:none">
-          <span>Logged in as <strong>admin</strong></span>
-          <button id="logoutBtn">Logout</button>
+          <div class="user-menu">
+            <button id="userMenuBtn" class="user-trigger" type="button" aria-haspopup="true">
+              Logged in as <strong id="userMenuName">admin</strong> ▾
+            </button>
+            <div class="user-menu-list" role="menu">
+              <a href="#account" class="user-menu-item" id="accountSettingsLink" role="menuitem">Account settings</a>
+              <button type="button" class="user-menu-item" id="logoutBtn" role="menuitem">Logout</button>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -92,6 +99,26 @@
             <a href="#login" class="tab" style="padding:12px 0">Back to sign in</a>
           </div>
           <div id="suStatus" class="field-error"></div>
+        </form>
+      </div>
+    </section>
+    <section id="sec-account" class="page" data-route="account" style="display:none">
+      <div class="section" style="max-width:420px;margin:40px auto;">
+        <h2>Account Settings</h2>
+        <div class="section-desc">Change your password.</div>
+        <form id="accountForm">
+          <label for="acctCurrent">Current password</label>
+          <input id="acctCurrent" type="password" autocomplete="current-password" required />
+          <label for="acctNew">New password</label>
+          <input id="acctNew" type="password" autocomplete="new-password" required />
+          <div class="field-help">At least 8 characters, with a letter and a number.</div>
+          <label for="acctConfirm">Confirm new password</label>
+          <input id="acctConfirm" type="password" autocomplete="new-password" required />
+          <div class="form-actions">
+            <button type="submit" id="acctSaveBtn">Save changes</button>
+            <a href="#attendance" class="tab" style="padding:12px 0">Back to app</a>
+          </div>
+          <div id="acctStatus" class="field-error"></div>
         </form>
       </div>
     </section>
