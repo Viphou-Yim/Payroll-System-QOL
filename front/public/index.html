@@ -30,16 +30,28 @@
       </div>
     </header>
     <nav class="tab-bar" id="mainNav" hidden>
-      <span class="tab-group">Operations:</span>
-      <a href="#attendance" class="tab" id="tab-attendance">Attendance</a>
-      <a href="#run" class="tab" id="tab-run">Run Payroll</a>
-      <span class="tab-group">Records:</span>
-      <a href="#records" class="tab" id="tab-records">Payroll Records</a>
-      <a href="#deductions" class="tab" id="tab-deductions">Deductions</a>
-      <a href="#savings" class="tab" id="tab-savings">Savings</a>
-      <span class="tab-group">System:</span>
-      <a href="#scheduler" class="tab" id="tab-scheduler">Scheduler</a>
-      <a href="#login" class="tab" id="tab-login">Login/Signup</a>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">Operations ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#attendance" class="tab" id="tab-attendance" role="menuitem">Attendance</a>
+          <a href="#run" class="tab" id="tab-run" role="menuitem">Run Payroll</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">Records ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#records" class="tab" id="tab-records" role="menuitem">Payroll Records</a>
+          <a href="#deductions" class="tab" id="tab-deductions" role="menuitem">Deductions</a>
+          <a href="#savings" class="tab" id="tab-savings" role="menuitem">Savings</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">System ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#scheduler" class="tab" id="tab-scheduler" role="menuitem">Scheduler</a>
+          <a href="#login" class="tab" id="tab-login" role="menuitem">Login/Signup</a>
+        </div>
+      </div>
     </nav>
     <div class="centered-content">
       <main>

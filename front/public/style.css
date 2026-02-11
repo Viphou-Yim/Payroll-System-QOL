@@ -12,6 +12,14 @@ body { font-family: Arial, sans-serif; margin: 0; background:#f7f8fb; color:#222
 .tab { font-size: 1.1rem; font-weight: 500; color: var(--accent); text-decoration: none; padding: 10px 6px; border-bottom: 2px solid transparent; transition: border-color 0.2s; display: inline-flex; align-items: center; }
 .tab.active { border-bottom: 2px solid var(--accent); color: #222; }
 .tab-group { font-size: 1rem; font-weight: 600; color: #888; margin-right: 8px; margin-left: 16px; letter-spacing: 0.5px; }
+.nav-dropdown { position: relative; display: inline-flex; align-items: center; }
+.nav-trigger { font-size: 1rem; font-weight: 600; color: #333; background: transparent; border: 1px solid #ddd; padding: 8px 12px; border-radius: 999px; cursor: pointer; min-height: 38px; }
+.nav-trigger:hover { background: #f5f7fb; }
+.nav-menu { position: absolute; top: 44px; left: 0; background: #fff; border: 1px solid #e6e6e6; border-radius: 8px; box-shadow: 0 8px 18px #0001; padding: 6px 8px; min-width: 200px; z-index: 12; display: none; flex-direction: column; gap: 4px; }
+.nav-menu .tab { color: #222; border-bottom: none; padding: 8px 10px; }
+.nav-menu .tab:hover { background: #f5f7fb; border-radius: 6px; }
+.nav-dropdown:focus-within .nav-menu,
+.nav-dropdown:hover .nav-menu { display: flex; }
 .section { border: 1px solid #eee; padding: 24px; margin-bottom: 32px; border-radius:8px; background:#fff; box-shadow: 0 1px 4px #0001; }
 .page-load { animation: cardIn 0.35s ease; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
