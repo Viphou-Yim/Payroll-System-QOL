@@ -38,7 +38,7 @@
     return opt;
   }
 
-  function filterAndPopulateSelect(selectId, firstName = '', lastName = '', phone = '') {
+  function filterAndPopulateSelect(selectId, name = '', phone = '') {
     const sel = $(selectId);
     if (!sel) return;
     sel.innerHTML = '<option value="">Select employee...</option>';
@@ -46,31 +46,27 @@
     const filtered = allEmployees.filter(e => {
       const nameLower = (e.name || '').toLowerCase();
       const phoneLower = (e.phone || '').toLowerCase();
-      const firstMatch = firstName.length === 0 || nameLower.includes(firstName.toLowerCase());
-      const lastMatch = lastName.length === 0 || nameLower.includes(lastName.toLowerCase());
+      const nameMatch = name.length === 0 || nameLower.includes(name.toLowerCase());
       const phoneMatch = phone.length === 0 || phoneLower.includes(phone.toLowerCase());
-      return firstMatch && lastMatch && phoneMatch;
+      return nameMatch && phoneMatch;
     });
 
     filtered.forEach(e => sel.appendChild(createEmployeeOption(e)));
   }
 
-  function setupEmployeeSearch(selectId, firstId, lastId, phoneId) {
-    const firstInput = $(firstId);
-    const lastInput = $(lastId);
+  function setupEmployeeSearch(selectId, nameId, phoneId) {
+    const nameInput = $(nameId);
     const phoneInput = $(phoneId);
     
-    if (!firstInput || !lastInput || !phoneInput) return;
+    if (!nameInput || !phoneInput) return;
     
     const updateFilter = () => {
-      const first = firstInput.value;
-      const last = lastInput.value;
+      const name = nameInput.value;
       const phone = phoneInput.value;
-      filterAndPopulateSelect(selectId, first, last, phone);
+      filterAndPopulateSelect(selectId, name, phone);
     };
     
-    firstInput.addEventListener('input', updateFilter);
-    lastInput.addEventListener('input', updateFilter);
+    nameInput.addEventListener('input', updateFilter);
     phoneInput.addEventListener('input', updateFilter);
   }
 
@@ -94,12 +90,12 @@
     // Populate attendance employee
     sel.innerHTML = '';
     allEmployees.forEach(e => sel.appendChild(createEmployeeOption(e)));
-    setupEmployeeSearch('employeeSelect', 'attEmpFirst', 'attEmpLast', 'attEmpPhone');
+    setupEmployeeSearch('employeeSelect', 'attEmpName', 'attEmpPhone');
     
     // Populate run payroll employee
     runSel.innerHTML = '';
     allEmployees.forEach(e => runSel.appendChild(createEmployeeOption(e)));
-    setupEmployeeSearch('runEmployeeSelect', 'runEmpFirst', 'runEmpLast', 'runEmpPhone');
+    setupEmployeeSearch('runEmployeeSelect', 'runEmpName', 'runEmpPhone');
     
     // Populate deductions employee
     dedSel.innerHTML = '';
@@ -110,7 +106,7 @@
       opt.textContent = `${e.name}${phone}`;
       dedSel.appendChild(opt);
     });
-    setupEmployeeSearch('dedEmployeeSelect', 'dedEmpFirst', 'dedEmpLast', 'dedEmpPhone');
+    setupEmployeeSearch('dedEmployeeSelect', 'dedEmpName', 'dedEmpPhone');
     
     if (typeof updateRunPreview === 'function') updateRunPreview();
   }
