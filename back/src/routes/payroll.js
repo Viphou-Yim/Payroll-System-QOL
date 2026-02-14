@@ -42,6 +42,7 @@ router.post('/holds/clear', controller.clearHold);
 
 // Employees - list employees for admin UI
 router.get('/employees', controller.listEmployees);
+router.post('/employees', sessionAuth.requireAdmin, controller.createEmployee);
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);
@@ -68,3 +69,4 @@ router.delete('/records/:id', sessionAuth.requireAdmin, controller.deletePayroll
 router.get('/export', controller.exportPayrollCsv);
 
 module.exports = router;
+ 

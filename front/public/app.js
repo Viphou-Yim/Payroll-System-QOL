@@ -350,6 +350,7 @@
     if (route === 'login') { setupLoginPage(); }
     if (route === 'signup') { setupSignupPage(); }
     if (route === 'account') { setupAccountPage(); }
+    if (route === 'employee-add') { setupEmployeeAddPage(); }
   }
 
   function setupLoginPage() {
@@ -971,6 +972,68 @@
 
   // Initialize scheduler status controls
   setSchedStatus('Unknown', null);
+
+
+  // Add Employee
+  function setupEmployeeAddPage() {
+    const form = document.getElementById('employeeAddForm');
+    if (!form) return;
+    const msg = document.getElementById('empAddMsg');
+    const saveBtn = document.getElementById('empSaveBtn');
+    const clearBtn = document.getElementById('empClearBtn');
+
+    const clear = () => {
+      form.reset();
+      // reset checkboxes default
+      const active = document.getElementById('empActive');
+      if (active) active.checked = true;
+      if (msg) msg.textContent = '';
+    };
+
+    if (clearBtn) clearBtn.onclick = clear;
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      if (msg) msg.textContent = '';
+      saveBtn.disabled = true;
+
+      const payload = {
+        name: document.getElementById('empName').value.trim(),
+        phone: document.getElementById('empPhone').value.trim(),
+        base_salary: Number(document.getElementById('empBaseSalary').value),
+        payroll_group: document.getElementById('empPayrollGroup').value,
+        start_date: document.getElementById('empStartDate').value || undefined,
+        active: !!document.getElementById('empActive').checked,
+        has_20_deduction: !!document.getElementById('empHas20').checked,
+        has_10day_holding: !!document.getElementById('empHas10Hold').checked,
+        has_debt_deduction: !!document.getElementById('empHasDebt').checked
+      };
+
+      if (!payload.name || !payload.payroll_group || Number.isNaN(payload.base_salary)) {
+        if (msg) msg.textContent = 'Name, payroll group, and base salary are required.';
+        saveBtn.disabled = false;
+        return;
+      }
+
+      const r = await fetchJson('/api/payroll/employees', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      saveBtn.disabled = false;
+
+      if (r.status === 200 || r.status === 201) {
+        showToast('Employee created');
+        clear();
+        // refresh cached employees for the rest of the app
+        loadEmployees();
+      } else {
+        if (msg) msg.textContent = r.body && r.body.message ? r.body.message : ('Error: ' + r.status);
+      }
+    };
+  }
+
 
   // routing
   function init() { showRoute(); loadEmployees(); refreshMe(); }
