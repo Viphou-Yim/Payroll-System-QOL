@@ -250,8 +250,8 @@
           <div class="dropdown">
             <button id="exportMenuBtn" type="button" class="secondary">Export ▾</button>
             <div id="exportMenu" class="dropdown-menu" style="display:none">
-              <button id="exportCsv" type="button">Export (client)</button>
-              <button id="exportServerCsv" type="button">Export (server)</button>
+              <button id="exportExcel" type="button">Export Excel</button>
+              <button id="exportPdf" type="button">Export PDF (table)</button>
             </div>
           </div>
         </div>
@@ -511,6 +511,9 @@
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

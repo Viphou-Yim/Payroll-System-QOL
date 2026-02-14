@@ -182,6 +182,54 @@
   function escapeCsv(val) { if (val === null || val === undefined) return ''; const s = typeof val === 'string' ? val : String(val); if (s.includes(',') || s.includes('\n') || s.includes('"')) { return '"' + s.replace(/"/g,'""') + '"'; } return s; }
   function downloadCsv(filename, rows) { const csv = rows.join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000); }
   function recordsToCsvRows(records) { const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsJson = JSON.stringify(r.deductions || []); const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsJson)]; rows.push(row.join(',')); } return rows; }
+  function recordsToExportRows(records) {
+    return (records || []).map((r) => ({
+      Employee: r.employee ? r.employee.name : (r.employee || ''),
+      EmployeeId: r.employee && r.employee._id ? r.employee._id : (r.employee || ''),
+      Month: r.month || '',
+      Gross: Number(r.gross_salary || 0),
+      TotalDeductions: Number(r.total_deductions || 0),
+      Net: Number(r.net_salary || 0),
+      Withheld: Number(r.withheld_amount || 0),
+      CarryoverSavings: Number(r.carryover_savings || 0),
+      Bonuses: Number(r.bonuses || 0)
+    }));
+  }
+  function downloadExcel(filename, records) {
+    if (!window.XLSX) {
+      alert('Excel export library not loaded. Please refresh and try again.');
+      return;
+    }
+    const rows = recordsToExportRows(records);
+    const wb = window.XLSX.utils.book_new();
+    const ws = window.XLSX.utils.json_to_sheet(rows);
+    window.XLSX.utils.book_append_sheet(wb, ws, 'PayrollRecords');
+    window.XLSX.writeFile(wb, filename);
+  }
+  function downloadPdfTable(filename, records) {
+    const jsPdfLib = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPdfLib) {
+      alert('PDF export library not loaded. Please refresh and try again.');
+      return;
+    }
+    const rows = recordsToExportRows(records);
+    const headers = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses'];
+    const body = rows.map((row) => headers.map((h) => row[h]));
+    const doc = new jsPdfLib({ orientation: 'landscape' });
+    doc.setFontSize(12);
+    doc.text('Payroll Records', 14, 14);
+    if (typeof doc.autoTable !== 'function') {
+      alert('PDF table plugin not loaded. Please refresh and try again.');
+      return;
+    }
+    doc.autoTable({
+      head: [headers],
+      body,
+      startY: 20,
+      styles: { fontSize: 8 }
+    });
+    doc.save(filename);
+  }
   function showRecordDetails(rec) { const d = $('recordDetails'); d.style.display = 'block'; const emp = rec.employee ? `${rec.employee.name} (${rec.employee._id})` : (rec.employee || ''); d.textContent = `Employee: ${emp}\nMonth: ${rec.month}\nGross: ${rec.gross_salary}\nTotal deductions: ${rec.total_deductions}\nNet: ${rec.net_salary}\nWithheld: ${rec.withheld_amount}\nCarryover savings: ${rec.carryover_savings}\nBonuses: ${JSON.stringify(rec.bonuses, null, 2)}\nDeductions: ${JSON.stringify(rec.deductions, null, 2)}`;
     const btnId = 'exportRecBtn'; if (!document.getElementById(btnId)) { const btn = document.createElement('button'); btn.id = btnId; btn.textContent = 'Export This Record CSV'; btn.addEventListener('click', () => { const rows = recordsToCsvRows([rec]); downloadCsv(`payroll_${rec.employee && rec.employee._id ? rec.employee._id : 'record'}_${rec.month}.csv`, rows); }); d.appendChild(document.createElement('div')).appendChild(btn); }
   }
@@ -221,23 +269,27 @@
     renderRecordsTable(filtered);
   }
 
-  $('exportCsv').addEventListener('click', () => {
-    if (!currentRecords || currentRecords.length === 0) { alert('No records loaded'); return; }
-    const month = $('recMonth').value || new Date().toISOString().slice(0,7);
-    const rows = recordsToCsvRows(filterRecords(currentRecords));
-    downloadCsv(`payroll_records_${month}.csv`, rows);
-  });
+  const exportExcelBtn = $('exportExcel');
+  if (exportExcelBtn) {
+    exportExcelBtn.addEventListener('click', () => {
+      if (!currentRecords || currentRecords.length === 0) { alert('No records loaded'); return; }
+      const month = $('recMonth').value || new Date().toISOString().slice(0,7);
+      const filtered = filterRecords(currentRecords);
+      if (!filtered.length) { alert('No records match your current filters'); return; }
+      downloadExcel(`payroll_records_${month}.xlsx`, filtered);
+    });
+  }
 
-  $('exportServerCsv').addEventListener('click', async () => {
-    const month = $('recMonth').value;
-    if (!month) { alert('Please enter a month (YYYY-MM)'); return; }
-    const resp = await fetchJson(`/api/payroll/export?month=${encodeURIComponent(month)}`);
-    if (!resp.res.ok) { alert('Export failed: ' + (resp.body.message || resp.status)); return; }
-    const blob = await resp.res.blob();
-    const filename = resp.res.headers.get('content-disposition')?.match(/filename="?(.*?)"?$/)?.[1] || `payroll_${month}.csv`;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-  });
+  const exportPdfBtn = $('exportPdf');
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', () => {
+      if (!currentRecords || currentRecords.length === 0) { alert('No records loaded'); return; }
+      const month = $('recMonth').value || new Date().toISOString().slice(0,7);
+      const filtered = filterRecords(currentRecords);
+      if (!filtered.length) { alert('No records match your current filters'); return; }
+      downloadPdfTable(`payroll_records_${month}.pdf`, filtered);
+    });
+  }
 
   // Records filters and export dropdown
   const exportMenuBtn = $('exportMenuBtn');
