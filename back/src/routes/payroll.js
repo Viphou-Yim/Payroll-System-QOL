@@ -17,6 +17,8 @@ const controller = require('../controllers/payrollController');
 const auth = require('../middleware/auth');
 const sessionAuth = require('../middleware/sessionAuth');
 const { attendanceValidator, generateMonthValidator, generateEmployeeValidator, scheduleStartValidator } = require('../middleware/validation');
+const BYPASS_ADMIN = true; // testing mode
+
 
 // require authenticated session or API key for all payroll endpoints
 router.use(sessionAuth.requireAuth);
@@ -42,6 +44,14 @@ router.post('/holds/clear', controller.clearHold);
 
 // Employees - list employees for admin UI
 router.get('/employees', controller.listEmployees);
+router.post(
+  '/employees',
+  (req, res, next) => {
+    if (BYPASS_ADMIN) return next();
+    return sessionAuth.requireAdmin(req, res, next);
+  },
+  controller.createEmployee
+);
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);

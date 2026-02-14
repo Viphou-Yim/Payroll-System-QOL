@@ -457,8 +457,56 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone');
     return res.json(employees);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+
+// Create employee (admin)
+async function createEmployee(req, res) {
+  try {
+    const {
+      name,
+      phone = '',
+      base_salary,
+      payroll_group,
+      has_20_deduction = false,
+      has_10day_holding = false,
+      has_debt_deduction = false,
+      start_date,
+      active = true
+    } = req.body || {};
+
+    if (!name || typeof name !== 'string') return res.status(400).json({ message: 'name is required' });
+    if (base_salary === undefined || base_salary === null || Number.isNaN(Number(base_salary))) {
+      return res.status(400).json({ message: 'base_salary is required and must be a number' });
+    }
+    const pg = String(payroll_group || '').trim();
+    if (!pg) return res.status(400).json({ message: 'payroll_group is required' });
+    const allowed = ['cut','no-cut','monthly'];
+    if (!allowed.includes(pg)) return res.status(400).json({ message: `payroll_group must be one of: ${allowed.join(', ')}` });
+
+    // basic duplicate guard (name+phone)
+    const existing = await Employee.findOne({ name: name.trim(), phone: phone.trim(), active: true });
+    if (existing) return res.status(409).json({ message: 'Employee already exists (same name + phone)' });
+
+    const emp = await Employee.create({
+      name: name.trim(),
+      phone: phone.trim(),
+      base_salary: Number(base_salary),
+      payroll_group: pg,
+      has_20_deduction: !!has_20_deduction,
+      has_10day_holding: !!has_10day_holding,
+      has_debt_deduction: !!has_debt_deduction,
+      start_date: start_date ? new Date(start_date) : undefined,
+      active: !!active
+    });
+
+    return res.status(201).json({ message: 'Employee created', employee: emp });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -659,6 +707,7 @@ module.exports = {
   getHolds,
   clearHold,
   listEmployees,
+  createEmployee,
   getSavings,
   updateSaving,
   upsertAttendance,
