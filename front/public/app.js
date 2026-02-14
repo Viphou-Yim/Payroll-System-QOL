@@ -85,6 +85,18 @@
       suggestBox.innerHTML = '';
     }
 
+    function getEmployeeById(id) {
+      if (!id) return null;
+      return allEmployees.find((emp) => String(emp._id) === String(id)) || null;
+    }
+
+    function syncFromEmployee(emp) {
+      if (!emp) return;
+      nameInput.value = emp.name || '';
+      phoneInput.value = emp.phone || '';
+      sel.value = emp._id;
+    }
+
     function renderSuggest(filtered) {
       const q = (nameInput.value || '').trim();
       if (!q || filtered.length === 0) {
@@ -98,9 +110,8 @@
         item.className = 'emp-suggest-item';
         item.textContent = emp.phone ? `${emp.name} (${emp.phone})` : emp.name;
         item.addEventListener('click', () => {
-          nameInput.value = emp.name || '';
+          syncFromEmployee(emp);
           filterAndPopulateSelect(selectId, nameInput.value, phoneInput.value);
-          sel.value = emp._id;
           hideSuggest();
           sel.dispatchEvent(new Event('change', { bubbles: true }));
         });
@@ -115,6 +126,10 @@
       const filtered = getFilteredEmployees(name, phone);
       filterAndPopulateSelect(selectId, name, phone);
       renderSuggest(filtered);
+      if (name.trim() && filtered.length === 1) {
+        syncFromEmployee(filtered[0]);
+        hideSuggest();
+      }
     };
     
     nameInput.addEventListener('input', updateFilter);
@@ -123,6 +138,14 @@
       if (e.target !== nameInput && !suggestBox.contains(e.target)) {
         hideSuggest();
       }
+    });
+
+    sel.addEventListener('change', () => {
+      const emp = getEmployeeById(sel.value);
+      if (!emp) return;
+      nameInput.value = emp.name || '';
+      phoneInput.value = emp.phone || '';
+      hideSuggest();
     });
   }
 
