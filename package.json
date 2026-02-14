@@ -7,6 +7,10 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently -n back,front -c yellow,cyan \"npm --prefix back run dev\" \"npm --prefix front run start\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
   }
 }
