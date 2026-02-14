@@ -94,3 +94,8 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 .employee-search-box { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid #e6eaf2; border-radius: 6px; background: #f5f7fb; }
 .emp-search-input { padding: 8px 10px; font-size: 0.95rem; border: 1px solid #ddd; border-radius: 4px; width: 100%; margin: 0 !important; max-width: none !important; }
 .emp-search-input::placeholder { color: #999; }
+.emp-suggest { border: 1px solid #ddd; border-radius: 6px; background: #fff; max-height: 180px; overflow-y: auto; }
+.emp-suggest[hidden] { display: none; }
+.emp-suggest-item { width: 100%; border: none; background: #fff; color: #222; text-align: left; padding: 8px 10px; margin: 0; min-height: auto; font-size: 0.92rem; border-bottom: 1px solid #f1f1f1; }
+.emp-suggest-item:last-child { border-bottom: none; }
+.emp-suggest-item:hover { background: #f5f7fb; }

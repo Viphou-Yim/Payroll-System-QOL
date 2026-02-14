@@ -38,18 +38,24 @@
     return opt;
   }
 
+  function getFilteredEmployees(name = '', phone = '') {
+    return allEmployees
+      .filter(e => {
+        const nameLower = (e.name || '').toLowerCase();
+        const phoneLower = (e.phone || '').toLowerCase();
+        const nameMatch = name.length === 0 || nameLower.includes(name.toLowerCase());
+        const phoneMatch = phone.length === 0 || phoneLower.includes(phone.toLowerCase());
+        return nameMatch && phoneMatch;
+      })
+      .sort((a, b) => (a.name || '').localeCompare((b.name || '')));
+  }
+
   function filterAndPopulateSelect(selectId, name = '', phone = '') {
     const sel = $(selectId);
     if (!sel) return;
     sel.innerHTML = '<option value="">Select employee...</option>';
-    
-    const filtered = allEmployees.filter(e => {
-      const nameLower = (e.name || '').toLowerCase();
-      const phoneLower = (e.phone || '').toLowerCase();
-      const nameMatch = name.length === 0 || nameLower.includes(name.toLowerCase());
-      const phoneMatch = phone.length === 0 || phoneLower.includes(phone.toLowerCase());
-      return nameMatch && phoneMatch;
-    });
+
+    const filtered = getFilteredEmployees(name, phone);
 
     filtered.forEach(e => sel.appendChild(createEmployeeOption(e)));
   }
@@ -57,17 +63,67 @@
   function setupEmployeeSearch(selectId, nameId, phoneId) {
     const nameInput = $(nameId);
     const phoneInput = $(phoneId);
+    const sel = $(selectId);
     
-    if (!nameInput || !phoneInput) return;
+    if (!nameInput || !phoneInput || !sel) return;
+    if (nameInput.dataset.searchBound === 'true') return;
+    nameInput.dataset.searchBound = 'true';
+
+    nameInput.setAttribute('autocomplete', 'off');
+    const suggestId = `${nameId}Suggest`;
+    let suggestBox = $(suggestId);
+    if (!suggestBox) {
+      suggestBox = document.createElement('div');
+      suggestBox.id = suggestId;
+      suggestBox.className = 'emp-suggest';
+      suggestBox.hidden = true;
+      nameInput.insertAdjacentElement('afterend', suggestBox);
+    }
+
+    function hideSuggest() {
+      suggestBox.hidden = true;
+      suggestBox.innerHTML = '';
+    }
+
+    function renderSuggest(filtered) {
+      const q = (nameInput.value || '').trim();
+      if (!q || filtered.length === 0) {
+        hideSuggest();
+        return;
+      }
+      suggestBox.innerHTML = '';
+      filtered.slice(0, 8).forEach((emp) => {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'emp-suggest-item';
+        item.textContent = emp.phone ? `${emp.name} (${emp.phone})` : emp.name;
+        item.addEventListener('click', () => {
+          nameInput.value = emp.name || '';
+          filterAndPopulateSelect(selectId, nameInput.value, phoneInput.value);
+          sel.value = emp._id;
+          hideSuggest();
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        suggestBox.appendChild(item);
+      });
+      suggestBox.hidden = false;
+    }
     
     const updateFilter = () => {
       const name = nameInput.value;
       const phone = phoneInput.value;
+      const filtered = getFilteredEmployees(name, phone);
       filterAndPopulateSelect(selectId, name, phone);
+      renderSuggest(filtered);
     };
     
     nameInput.addEventListener('input', updateFilter);
     phoneInput.addEventListener('input', updateFilter);
+    document.addEventListener('click', (e) => {
+      if (e.target !== nameInput && !suggestBox.contains(e.target)) {
+        hideSuggest();
+      }
+    });
   }
 
   async function loadEmployees() {
