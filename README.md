@@ -1,96 +1,281 @@
-# Payroll System QOL — Client Step-by-Step Guide
+# Payroll System — Desktop Application
 
-This guide is for day-to-day use by payroll staff.
+A modern, installable payroll management system built with Electron, Express, MongoDB, and Angular.
 
-## 1) Start the system
-
-1. Open a terminal in the project root folder: `Payroll-System-QOL`
-2. Run:
-	- `npm run dev`
-3. Open your browser to:
-	- `http://localhost:3000`
-
-## 2) Sign in
-
-1. Go to the **Login** page.
-2. Enter your username and password.
-3. Click **Sign In**.
-
-## 3) Add an employee
-
-Go to **People → Add Employee**.
-
-### Common fields (for all employees)
-
-1. Fill **Full name** and **Phone**.
-2. Enter **Base salary**.
-3. Set **Start date**.
-4. Keep **Active** checked (unless employee should be inactive).
-5. Set payroll flags if needed:
-	- **Apply $20 deduction profile**
-	- **Withhold 10-day holding**
-	- **Has debt deduction**
-
-### Payroll group selection rules (important)
-
-- If **Has debt deduction** is checked, only **monthly** is allowed.
-- If **$20 deduction** or **10-day holding** is checked, **no-cut** is not allowed.
-- Disabled groups appear grey.
-- Hover/focus the payroll group box to see warning messages.
-
-### Optional multi/none selection mode
-
-- Enable **Allow multiple or no group selection** if you want flexibility while deciding.
-- You can select multiple groups or none.
-- On save, the system auto-resolves to one valid payroll group.
-
-## 4) Process a long-time employee (already employed before now)
-
-Use this flow when adding someone who has already been working for a while.
-
-1. Add the employee record (Section 3), using their real historical **Start date**.
-2. Go to **Operations → Attendance**.
-3. Enter attendance for the payroll month (days worked/absent).
-4. If needed, add existing obligations:
-	- **Records → Deductions** for debt entries
-	- **Records → Savings** for savings amount/accumulated amount
-5. Go to **Operations → Run Payroll**.
-6. Select employee + month and run payroll.
-7. Verify results in **Records → Payroll Records**.
-
-## 5) Process a brand-new employee
-
-Use this flow for a new hire.
-
-1. Add the employee record (Section 3) with the actual new hire **Start date**.
-2. Enter attendance for the current month.
-	- Example: if hired mid-month, days worked should only reflect worked days.
-3. Run payroll from **Operations → Run Payroll**.
-4. Review output in **Records → Payroll Records**.
-
-## 6) Monthly payroll routine (recommended)
-
-1. Confirm all employee attendance is complete.
-2. Confirm any deductions/savings updates are complete.
-3. Run payroll for required employees or payroll group.
-4. Review payroll records.
-5. Export records if needed.
-
-## 7) Quick checks before clicking Save/Run
-
-- Name, payroll group, and base salary are filled.
-- Payroll group is not greyed out (or let auto-resolve choose one).
-- Attendance month is correct (`YYYY-MM` in payroll contexts).
-- Employee is Active.
-
-## 8) If you see errors
-
-- **Not authenticated**: log in again.
-- **Incompatible payroll group**: adjust flags or choose an allowed group.
-- **Employee already exists**: check for same name + phone.
+## Quick Links
+- **For Clients:** See [INSTALLATION.md](INSTALLATION.md) for installation and usage instructions
+- **For Developers:** See sections below
+- **Backend Docs:** [back/README.md](back/README.md)
+- **Frontend Docs:** [front/README.md](front/README.md)
 
 ---
 
-For technical API/setup details, see:
-- `back/README.md`
-- `front/README.md`
+## Developer Setup
+
+### Prerequisites
+- Node.js 16+
+- MongoDB running locally (`mongod` service on port 27017)
+- Ports 3000 and 4000 available
+
+### Installation
+
+```bash
+# Install all dependencies
+npm install
+npm --prefix back install
+npm --prefix front install
+```
+
+### Development Mode
+
+**Option 1: Run all services together (Recommended)**
+```bash
+npm run desktop:dev
+```
+
+This starts:
+- Backend (Express) on port 4000
+- Frontend (Angular dev server) on port 3000
+- Electron desktop window (opens automatically)
+
+**Option 2: Run services separately (for debugging)**
+
+Terminal 1 - Backend:
+```bash
+npm --prefix back run dev
+```
+
+Terminal 2 - Frontend:
+```bash
+npm --prefix front run start
+```
+
+Terminal 3 - Electron:
+```bash
+npx electron .
+```
+
+### Building for Windows
+
+Create an NSIS installer (.exe):
+
+```bash
+npm run desktop:build
+```
+
+Output: `dist/Payroll-System-*.exe`
+
+**Note:** Building requires a Windows machine or Windows build tools installed.
+
+---
+
+## User Guide — Payroll Staff
+
+### Starting the Application
+
+**After installation:**
+1. Find "Payroll System" in your Start Menu or desktop
+2. Click to launch (first startup takes 15-30 seconds)
+
+### Key Features
+
+#### 1. Employee Management
+- **People → Add Employee** - Create new employee records
+- Set base salary, start date, and payroll group
+- Manage active/inactive status
+
+#### 2. Attendance Tracking
+- **Operations → Attendance** - Log daily attendance
+- Track days worked vs. absent each month
+- Required for payroll calculations
+
+#### 3. Payroll Processing
+- **Operations → Run Payroll** - Calculate and generate payroll
+- Select employee and month
+- System applies deductions and bonuses automatically
+- Review results before finalizing
+
+#### 4. Records Management
+- **Records → Payroll Records** - View all processed payroll
+- **Records → Deductions** - Manage employee deductions/debts
+- **Records → Savings** - Track employee savings accounts
+
+### Monthly Payroll Workflow
+
+1. **Verify Attendance**
+   - Go to **Operations → Attendance**
+   - Confirm all employee attendance is recorded for the month
+
+2. **Update Obligations** (if needed)
+   - Check **Records → Deductions** for any new deductions
+   - Check **Records → Savings** for any account updates
+
+3. **Run Payroll**
+   - Go to **Operations → Run Payroll**
+   - Select employees or payroll group
+   - Click "Generate" and review results
+
+4. **Finalize**
+   - Review **Records → Payroll Records**
+   - Verify calculations are correct
+   - Export or print if needed
+
+### Employee Types & Rules
+
+#### Common Payroll Groups
+- **monthly** - Standard monthly salary, mandatory if employee has debt deductions
+- **no-cut** - Different deduction profile, cannot use with 10-day holding
+- **savings** - Employees with savings account tracking
+
+#### Important Rules
+- Employees with **debt deductions** must use the **monthly** group
+- Employees with **10-day holding** cannot use **no-cut** group
+- All required fields must be filled before saving
+
+### Troubleshooting User Issues
+
+| Problem | Solution |
+|---------|----------|
+| App won't start | Ensure MongoDB service is running (Windows Services) |
+| "Not authenticated" | Click "Sign In" and re-enter credentials |
+| Changes not saving | Check MongoDB is running; restart app if needed |
+| Employee not found | Search by exact name; check if employee is Active |
+
+---
+
+## Project Structure
+
+```
+.
+├── electron/                    # Electron desktop app
+│   ├── main.js                 # App entry point
+│   ├── preload.js              # Security layer
+│   └── utils/
+│       ├── waitForServer.js    # Startup coordination
+│       └── mongoCheck.js       # MongoDB health check
+├── back/                       # Express.js backend
+│   ├── src/
+│   │   ├── app.js
+│   │   ├── index.js
+│   │   ├── controllers/
+│   │   ├── routes/
+│   │   ├── models/
+│   │   ├── services/
+│   │   └── middleware/
+│   └── package.json
+├── front/                      # Angular frontend
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── app.js
+│   │   └── style.css
+│   ├── server.js              # Express dev server
+│   └── package.json
+├── assets/                     # App icons & resources
+├── package.json               # Root config + Electron builder
+├── INSTALLATION.md            # Client installation guide
+└── README.md                  # This file
+```
+
+---
+
+## Building & Distribution
+
+### Development Build
+
+```bash
+npm run desktop:dev
+```
+
+### Production Build
+
+```bash
+npm run desktop:build
+```
+
+This will:
+1. Build backend and frontend (if build scripts exist)
+2. Run electron-builder with NSIS configuration
+3. Create: `dist/Payroll-System-*.exe`
+
+### Distribute to Clients
+
+1. Share the `.exe` file from the `dist/` folder
+2. Provide the [INSTALLATION.md](INSTALLATION.md) guide
+3. Clients must have MongoDB installed first
+
+---
+
+## Configuration
+
+### Environment Variables
+
+Create `.env` in the project root:
+
+```env
+MONGODB_URI=mongodb://localhost:27017/payroll
+BACKEND_PORT=4000
+FRONTEND_PORT=3000
+```
+
+### Electron Builder Config
+
+Located in `package.json` under `"build"`:
+- **NSIS configuration** - Windows installer options
+- **App metadata** - Name, ID, productName
+- **File includes** - What gets packaged into the .exe
+
+---
+
+## Troubleshooting
+
+### Development
+
+**Port already in use:**
+```bash
+# Windows - find and kill process on port 3000/4000
+netstat -ano | findstr :3000
+taskkill /PID <PID> /F
+```
+
+**MongoDB connection fails:**
+```bash
+# Start MongoDB manually
+mongod
+```
+
+**Electron won't open:**
+- Check console output for errors
+- Verify backend responds: `curl http://localhost:4000`
+- Verify frontend responds: `curl http://localhost:3000`
+
+### Building
+
+**File not found errors:**
+- Ensure all `npm install` commands completed
+- Check that backend and frontend builds succeeded
+
+**NSIS script error:**
+- Requires Windows or Windows build tools
+- May need to install electron-builder additional dependencies
+
+---
+
+## Next Steps
+
+1. **Code Signing** - Add Windows code signing certificate for production
+2. **Auto-Updates** - Implement electron-updater
+3. **Crash Reporting** - Add Sentry or similar monitoring
+4. **Application Logging** - Implement Winston for detailed logs
+5. **Database Backups** - Add automatic backup features
+
+---
+
+## Support Resources
+
+- [Electron Documentation](https://www.electronjs.org/docs)
+- [MongoDB Documentation](https://docs.mongodb.com/)
+- [Express.js Guide](https://expressjs.com/)
+- [Angular Documentation](https://angular.io/docs)
+
+**Version:** 1.0.0
+**Last Updated:** February 2026
