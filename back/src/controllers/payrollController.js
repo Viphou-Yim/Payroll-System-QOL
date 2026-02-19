@@ -490,6 +490,23 @@ async function createEmployee(req, res) {
     const allowed = ['cut','no-cut','monthly'];
     if (!allowed.includes(pg)) return res.status(400).json({ message: `payroll_group must be one of: ${allowed.join(', ')}` });
 
+    const has20 = !!has_20_deduction;
+    const has10dayHolding = !!has_10day_holding;
+    const hasDebt = !!has_debt_deduction;
+
+    const compatibleGroups = allowed.filter((group) => {
+      if (hasDebt) return group === 'monthly';
+      if ((has20 || has10dayHolding) && group === 'no-cut') return false;
+      return true;
+    });
+
+    if (!compatibleGroups.includes(pg)) {
+      return res.status(400).json({
+        message: `payroll_group "${pg}" is incompatible with selected payroll flags`,
+        compatible_groups: compatibleGroups
+      });
+    }
+
     // basic duplicate guard (name+phone)
     const existing = await Employee.findOne({ name: name.trim(), phone: phone.trim(), active: true });
     if (existing) return res.status(409).json({ message: 'Employee already exists (same name + phone)' });
@@ -499,9 +516,9 @@ async function createEmployee(req, res) {
       phone: phone.trim(),
       base_salary: Number(base_salary),
       payroll_group: pg,
-      has_20_deduction: !!has_20_deduction,
-      has_10day_holding: !!has_10day_holding,
-      has_debt_deduction: !!has_debt_deduction,
+      has_20_deduction: has20,
+      has_10day_holding: has10dayHolding,
+      has_debt_deduction: hasDebt,
       start_date: start_date ? new Date(start_date) : undefined,
       active: !!active
     });

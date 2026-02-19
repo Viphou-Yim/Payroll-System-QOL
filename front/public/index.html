@@ -153,12 +153,17 @@
             </div>
             <div>
               <label for="empPayrollGroup">Payroll group</label>
-              <select id="empPayrollGroup" required>
+              <select id="empPayrollGroup" class="group-select" title="Select payroll group">
                 <option value="">Select…</option>
                 <option value="cut">cut</option>
                 <option value="no-cut">no-cut</option>
                 <option value="monthly">monthly</option>
               </select>
+              <label style="display:flex;gap:10px;align-items:center;margin:6px 0 0 0;font-weight:500">
+                <input id="empAllowGroupMix" type="checkbox" /> Allow multiple or no group selection
+              </label>
+              <div class="field-help" style="margin-top:6px">When enabled, you can pick multiple groups (or none). The server will auto-resolve to one group based on payroll conditions.</div>
+              <div id="empGroupWarn" class="warning-text" style="display:none"></div>
             </div>
           </div>
 

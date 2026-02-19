@@ -57,6 +57,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .status-badge.stopped { background: #fdecec; color: #b91c1c; }
 .section-desc { color: var(--muted); margin-bottom: 24px; }
 .warning-text { background: #fff4e5; border: 1px solid #f2c27c; color: #8a4b00; padding: 8px 10px; border-radius: 6px; font-size: 0.95rem; margin: 12px 0 16px 0; }
+.group-select option:disabled { color: #9aa0a6; }
+.group-warning-inline { margin-top: 8px; margin-bottom: 8px; }
 .toast { position: fixed; top: 16px; right: 16px; background: #222; color: #fff; padding: 10px 16px; border-radius: 6px; box-shadow: 0 2px 10px #0003; z-index: 1000; }
 table { width:100%; border-collapse: collapse; margin-top: 32px; }
 th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; }

@@ -1108,27 +1108,172 @@
     const msg = document.getElementById('empAddMsg');
     const saveBtn = document.getElementById('empSaveBtn');
     const clearBtn = document.getElementById('empClearBtn');
+    const groupSelect = document.getElementById('empPayrollGroup');
+    const allowGroupMix = document.getElementById('empAllowGroupMix');
+    const groupWarn = document.getElementById('empGroupWarn');
+    const has20El = document.getElementById('empHas20');
+    const has10HoldEl = document.getElementById('empHas10Hold');
+    const hasDebtEl = document.getElementById('empHasDebt');
+
+    function getGroupAvailability() {
+      const has20 = !!(has20El && has20El.checked);
+      const has10Hold = !!(has10HoldEl && has10HoldEl.checked);
+      const hasDebt = !!(hasDebtEl && hasDebtEl.checked);
+
+      const availability = {
+        cut: { enabled: true, reason: '' },
+        'no-cut': { enabled: true, reason: '' },
+        monthly: { enabled: true, reason: '' }
+      };
+
+      if (has20 || has10Hold) {
+        availability['no-cut'] = {
+          enabled: false,
+          reason: 'Disabled: no-cut does not apply $20 deduction or 10-day holding profiles.'
+        };
+      }
+
+      if (hasDebt) {
+        availability.cut = {
+          enabled: false,
+          reason: 'Disabled: debt-deduction profile uses monthly group payroll behavior.'
+        };
+        availability['no-cut'] = {
+          enabled: false,
+          reason: 'Disabled: debt-deduction profile uses monthly group payroll behavior.'
+        };
+      }
+
+      let suggested = 'no-cut';
+      if (hasDebt) suggested = 'monthly';
+      else if (has20 || has10Hold) suggested = 'cut';
+
+      if (!availability[suggested] || !availability[suggested].enabled) {
+        const fallback = Object.keys(availability).find((group) => availability[group].enabled);
+        suggested = fallback || '';
+      }
+
+      return { availability, suggested };
+    }
+
+    function updateGroupUiFromConditions() {
+      if (!groupSelect) return;
+      const { availability, suggested } = getGroupAvailability();
+      const allowMulti = !!(allowGroupMix && allowGroupMix.checked);
+      const warnings = [];
+
+      if (allowMulti) {
+        groupSelect.setAttribute('multiple', 'multiple');
+        groupSelect.removeAttribute('required');
+      } else {
+        groupSelect.removeAttribute('multiple');
+      }
+
+      Array.from(groupSelect.options).forEach((opt) => {
+        if (!opt.value) return;
+        const groupState = availability[opt.value] || { enabled: true, reason: '' };
+        opt.disabled = !groupState.enabled;
+        opt.title = groupState.reason || '';
+        if (opt.disabled) {
+          warnings.push(`${opt.value}: ${groupState.reason}`);
+          opt.selected = false;
+        }
+      });
+
+      if (!allowMulti) {
+        if (!groupSelect.value || (availability[groupSelect.value] && !availability[groupSelect.value].enabled)) {
+          groupSelect.value = suggested || '';
+        }
+      }
+
+      const warningText = warnings.join(' | ');
+      groupSelect.title = warningText || 'Select payroll group';
+
+      if (groupWarn) {
+        groupWarn.classList.add('group-warning-inline');
+        groupWarn.textContent = warningText;
+        groupWarn.style.display = 'none';
+      }
+    }
+
+    function getSelectedGroups() {
+      if (!groupSelect) return [];
+      if (groupSelect.hasAttribute('multiple')) {
+        return Array.from(groupSelect.selectedOptions).map((o) => o.value).filter(Boolean);
+      }
+      return groupSelect.value ? [groupSelect.value] : [];
+    }
+
+    function resolvePayrollGroupForSubmit() {
+      const selectedGroups = getSelectedGroups();
+      const { availability, suggested } = getGroupAvailability();
+
+      const enabledSelected = selectedGroups.filter((group) => availability[group] && availability[group].enabled);
+
+      if (enabledSelected.length === 1) return enabledSelected[0];
+      if (enabledSelected.length > 1) return suggested || enabledSelected[0];
+      if (suggested) return suggested;
+
+      const firstEnabled = Object.keys(availability).find((group) => availability[group].enabled);
+      return firstEnabled || '';
+    }
 
     const clear = () => {
       form.reset();
       // reset checkboxes default
       const active = document.getElementById('empActive');
       if (active) active.checked = true;
+      if (allowGroupMix) allowGroupMix.checked = false;
+      updateGroupUiFromConditions();
       if (msg) msg.textContent = '';
     };
 
     if (clearBtn) clearBtn.onclick = clear;
+
+    if (allowGroupMix) {
+      allowGroupMix.addEventListener('change', () => {
+        updateGroupUiFromConditions();
+      });
+    }
+
+    [has20El, has10HoldEl, hasDebtEl].forEach((el) => {
+      if (el) {
+        el.addEventListener('change', () => {
+          updateGroupUiFromConditions();
+        });
+      }
+    });
+
+    if (groupSelect && groupWarn) {
+      groupSelect.addEventListener('mouseenter', () => {
+        if (groupWarn.textContent) groupWarn.style.display = 'block';
+      });
+      groupSelect.addEventListener('focus', () => {
+        if (groupWarn.textContent) groupWarn.style.display = 'block';
+      });
+      groupSelect.addEventListener('mouseleave', () => {
+        groupWarn.style.display = 'none';
+      });
+      groupSelect.addEventListener('blur', () => {
+        groupWarn.style.display = 'none';
+      });
+    }
+
+    updateGroupUiFromConditions();
 
     form.onsubmit = async (e) => {
       e.preventDefault();
       if (msg) msg.textContent = '';
       saveBtn.disabled = true;
 
+      const selectedGroups = getSelectedGroups();
+      const resolvedPayrollGroup = resolvePayrollGroupForSubmit();
+
       const payload = {
         name: document.getElementById('empName').value.trim(),
         phone: document.getElementById('empPhone').value.trim(),
         base_salary: Number(document.getElementById('empBaseSalary').value),
-        payroll_group: document.getElementById('empPayrollGroup').value,
+        payroll_group: resolvedPayrollGroup,
         start_date: document.getElementById('empStartDate').value || undefined,
         active: !!document.getElementById('empActive').checked,
         has_20_deduction: !!document.getElementById('empHas20').checked,
@@ -1140,6 +1285,10 @@
         if (msg) msg.textContent = 'Name, payroll group, and base salary are required.';
         saveBtn.disabled = false;
         return;
+      }
+
+      if (msg && selectedGroups.length !== 1) {
+        msg.textContent = `Payroll group auto-resolved to "${payload.payroll_group}" from selected conditions.`;
       }
 
       const r = await fetchJson('/api/payroll/employees', {
