@@ -143,6 +143,15 @@ Output: `dist/Payroll-System-*.exe`
 
 ---
 
+## Privacy & Data Storage
+
+- Employee/payroll data is stored in the client's local MongoDB instance.
+- On startup, the app checks only local service availability (`localhost:27017` and required app ports).
+- The app does **not** scan personal files, browser history, photos, documents, or cloud accounts.
+- No data is transmitted outside the client PC unless an external server is intentionally configured.
+
+---
+
 ## Project Structure
 
 ```

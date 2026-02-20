@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const net = require('net');
@@ -14,6 +15,50 @@ let appInitialized = false;
 const BACKEND_URL = 'http://localhost:4000';
 const FRONTEND_URL = 'http://localhost:3000';
 const FRONTEND_BUILD_PATH = path.join(__dirname, '../front/public');
+const FIRST_RUN_NOTICE_PATH = path.join(app.getPath('userData'), 'first-run-notice.json');
+
+async function hasSeenFirstRunNotice() {
+  try {
+    const content = await fs.promises.readFile(FIRST_RUN_NOTICE_PATH, 'utf8');
+    const parsed = JSON.parse(content);
+    return parsed && parsed.seen === true;
+  } catch (error) {
+    return false;
+  }
+}
+
+async function markFirstRunNoticeAsSeen() {
+  const payload = {
+    seen: true,
+    seenAt: new Date().toISOString(),
+  };
+  await fs.promises.writeFile(FIRST_RUN_NOTICE_PATH, JSON.stringify(payload, null, 2), 'utf8');
+}
+
+async function showFirstRunNotice() {
+  const seen = await hasSeenFirstRunNotice();
+  if (seen) {
+    return;
+  }
+
+  await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Setup & Privacy Notice',
+    buttons: ['Continue'],
+    defaultId: 0,
+    noLink: true,
+    message: 'MongoDB detected on this PC (localhost:27017).',
+    detail: [
+      'This app stores payroll data in your local MongoDB database.',
+      '',
+      'Privacy: the app only checks local service availability (MongoDB and required local ports).',
+      'It does not scan personal files, browser history, photos, documents, or cloud accounts.',
+      'No employee data is sent outside your PC unless you configure an external server yourself.',
+    ].join('\n'),
+  });
+
+  await markFirstRunNoticeAsSeen();
+}
 
 function checkPortAvailable(port) {
   return new Promise((resolve) => {
@@ -151,6 +196,7 @@ async function initializeApp() {
 
     console.log('Creating window...');
     createWindow();
+    await showFirstRunNotice();
 
     appInitialized = true;
   } catch (error) {
