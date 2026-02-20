@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const { spawn, fork } = require('child_process');
+const net = require('net');
 const { waitForServer } = require('./utils/waitForServer');
 const { checkMongoDB } = require('./utils/mongoCheck');
 const isDev = !app.isPackaged;
@@ -13,6 +14,47 @@ let appInitialized = false;
 const BACKEND_URL = 'http://localhost:4000';
 const FRONTEND_URL = 'http://localhost:3000';
 const FRONTEND_BUILD_PATH = path.join(__dirname, '../front/public');
+
+function checkPortAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+
+    server.once('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        resolve(false);
+      } else {
+        resolve(false);
+      }
+    });
+
+    server.once('listening', () => {
+      server.close(() => resolve(true));
+    });
+
+    server.listen(port, '127.0.0.1');
+  });
+}
+
+async function validateStartupPrerequisites() {
+  const mongoConnected = await checkMongoDB();
+  if (!mongoConnected) {
+    throw new Error('MongoDB is not running. Please install/start MongoDB Community Server (mongod service) and try again.');
+  }
+
+  const requiredPorts = isDev ? [3000, 4000] : [4000];
+  const unavailablePorts = [];
+
+  for (const port of requiredPorts) {
+    const available = await checkPortAvailable(port);
+    if (!available) {
+      unavailablePorts.push(port);
+    }
+  }
+
+  if (unavailablePorts.length > 0) {
+    throw new Error(`Required port(s) already in use: ${unavailablePorts.join(', ')}. Please close the process using those port(s) and try again.`);
+  }
+}
 
 /**
  * Create the main application window
@@ -55,7 +97,6 @@ async function startBackend() {
   return new Promise((resolve, reject) => {
     const backendEntry = path.join(__dirname, '../back/src/index.js');
     backendProcess = fork(backendEntry, [], {
-      cwd: path.dirname(backendEntry),
       stdio: 'inherit',
     });
 
@@ -116,12 +157,8 @@ async function initializeApp() {
   }
 
   try {
-    // Check MongoDB connection
-    console.log('Checking MongoDB connection...');
-    const mongoConnected = await checkMongoDB();
-    if (!mongoConnected) {
-      throw new Error('MongoDB is not running. Please start MongoDB service and try again.');
-    }
+    console.log('Checking startup prerequisites...');
+    await validateStartupPrerequisites();
 
     console.log('Starting backend...');
     await startBackend();
@@ -146,9 +183,10 @@ async function initializeApp() {
  * Show error dialog
  */
 function showErrorDialog(message) {
+  const requiredPortsText = isDev ? '3000 and 4000' : '4000';
   dialog.showErrorBox(
     'Payroll System - Error',
-    message + '\n\nPlease ensure:\n1. MongoDB is installed and running\n2. Ports 3000 and 4000 are available'
+    message + `\n\nPlease ensure:\n1. MongoDB is installed and running\n2. Port(s) ${requiredPortsText} are available`
   );
 }
 
