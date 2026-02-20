@@ -1,13 +1,13 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
-const { spawn, fork } = require('child_process');
+const { spawn } = require('child_process');
 const net = require('net');
 const { waitForServer } = require('./utils/waitForServer');
 const { checkMongoDB } = require('./utils/mongoCheck');
+const backendServer = require('../back/src/index');
 const isDev = !app.isPackaged;
 
 let mainWindow;
-let backendProcess;
 let frontendProcess;
 let appInitialized = false;
 
@@ -94,28 +94,9 @@ function createWindow() {
  * Start backend server
  */
 async function startBackend() {
-  return new Promise((resolve, reject) => {
-    const backendEntry = path.join(__dirname, '../back/src/index.js');
-    backendProcess = fork(backendEntry, [], {
-      stdio: 'inherit',
-    });
-
-    backendProcess.on('error', (err) => {
-      console.error('Backend process error:', err);
-      reject(err);
-    });
-
-    // Wait for backend to be ready
-    waitForServer(BACKEND_URL, 30000) // 30 second timeout
-      .then(() => {
-        console.log('Backend is ready');
-        resolve();
-      })
-      .catch((err) => {
-        console.error('Backend failed to start:', err);
-        reject(new Error('Backend server failed to start. Please check your MongoDB connection.'));
-      });
-  });
+  await backendServer.startServer();
+  await waitForServer(BACKEND_URL, 30000);
+  console.log('Backend is ready');
 }
 
 /**
@@ -213,9 +194,9 @@ app.on('activate', () => {
  * Kill all child processes on app quit
  */
 app.on('before-quit', () => {
-  if (backendProcess) {
-    backendProcess.kill();
-  }
+  backendServer.stopServer().catch((err) => {
+    console.error('Error stopping backend server:', err);
+  });
   if (frontendProcess) {
     frontendProcess.kill();
   }

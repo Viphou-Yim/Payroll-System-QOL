@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
+const path = require('path');
 
 const payrollRoutes = require('./routes/payroll');
 const authRoutes = require('./routes/auth');
@@ -22,7 +23,7 @@ app.use(session({
 }));
 
 // Serve static admin UI
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/payroll', payrollRoutes);

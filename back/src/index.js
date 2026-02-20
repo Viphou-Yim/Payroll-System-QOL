@@ -11,26 +11,65 @@ const app = require('./app');
 const PORT = process.env.PORT || 4000;
 const MONGO = process.env.MONGODB_URI || 'mongodb://localhost:27017/payroll_db';
 
-mongoose.connect(MONGO, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(async () => {
-    console.log('Connected to MongoDB');
+let serverInstance;
 
-    // Initialize persisted schedulers (if any) with a runner that calls payroll generator
-    const schedulerService = require('./services/schedulerService');
-    const payrollController = require('./controllers/payrollController');
-    try {
-      await schedulerService.init(async (group) => {
-        const month = new Date().toISOString().slice(0,7);
-        await payrollController.generatePayrollForMonth({ body: { month, payroll_group: group } }, { json: () => {} });
+async function startServer() {
+  if (serverInstance) {
+    return serverInstance;
+  }
+
+  await mongoose.connect(MONGO);
+  console.log('Connected to MongoDB');
+
+  const schedulerService = require('./services/schedulerService');
+  const payrollController = require('./controllers/payrollController');
+  try {
+    await schedulerService.init(async (group) => {
+      const month = new Date().toISOString().slice(0, 7);
+      await payrollController.generatePayrollForMonth({ body: { month, payroll_group: group } }, { json: () => {} });
+    });
+    console.log('Scheduler service initialized');
+  } catch (err) {
+    console.error('Scheduler init error', err);
+  }
+
+  await new Promise((resolve) => {
+    serverInstance = app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+      resolve();
+    });
+  });
+
+  return serverInstance;
+}
+
+async function stopServer() {
+  if (serverInstance) {
+    await new Promise((resolve, reject) => {
+      serverInstance.close((err) => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
       });
-      console.log('Scheduler service initialized');
-    } catch (err) {
-      console.error('Scheduler init error', err);
-    }
+    });
+    serverInstance = null;
+  }
 
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch(err => {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
+  }
+}
+
+if (require.main === module) {
+  startServer().catch((err) => {
     console.error('Mongo connection error', err);
     process.exit(1);
   });
+}
+
+module.exports = {
+  startServer,
+  stopServer,
+};
