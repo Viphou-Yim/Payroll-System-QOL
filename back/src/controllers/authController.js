@@ -1,8 +1,7 @@
 const ADMIN_USER = process.env.ADMIN_USER || 'admin';
 let adminPassword = process.env.ADMIN_PASSWORD || 'password';
 const ADMIN_ROLE = process.env.ADMIN_ROLE || 'admin';
-
-const users = [];
+const User = require('../models/User');
 
 async function login(req, res) {
   const { username, password } = req.body || {};
@@ -13,12 +12,19 @@ async function login(req, res) {
     req.session.user = { username, role: ADMIN_ROLE };
     return res.json({ message: 'ok', user: req.session.user });
   }
-  const match = users.find(u => (u.username === username || u.email === username) && u.password === password);
-  if (match) {
-    req.session.user = { username: match.username, role: 'user' };
-    return res.json({ message: 'ok', user: req.session.user });
+  try {
+    const match = await User.findOne({
+      $or: [{ username }, { email: username }],
+      password,
+    }).lean();
+    if (match) {
+      req.session.user = { username: match.username, role: match.role || 'user' };
+      return res.json({ message: 'ok', user: req.session.user });
+    }
+    return res.status(401).json({ message: 'invalid credentials' });
+  } catch (error) {
+    return res.status(500).json({ message: 'login failed' });
   }
-  return res.status(401).json({ message: 'invalid credentials' });
 }
 
 async function signup(req, res) {
@@ -30,10 +36,17 @@ async function signup(req, res) {
   const passwordOk = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(password);
   if (!emailOk) return res.status(400).json({ message: 'invalid email format' });
   if (!passwordOk) return res.status(400).json({ message: 'password must be at least 8 characters and include a letter and a number' });
-  const exists = users.find(u => u.username === username || u.email === email);
-  if (exists) return res.status(409).json({ message: 'username or email already exists' });
-  users.push({ username, email, password });
-  return res.json({ message: 'signup ok' });
+  try {
+    const normalizedEmail = String(email).toLowerCase();
+    const exists = await User.findOne({
+      $or: [{ username }, { email: normalizedEmail }],
+    }).lean();
+    if (exists) return res.status(409).json({ message: 'username or email already exists' });
+    await User.create({ username, email: normalizedEmail, password, role: 'user' });
+    return res.json({ message: 'signup ok' });
+  } catch (error) {
+    return res.status(500).json({ message: 'signup failed' });
+  }
 }
 
 async function logout(req, res) {
@@ -69,12 +82,13 @@ async function changePassword(req, res) {
     adminPassword = newPassword;
     return res.json({ message: 'password updated' });
   }
-  const user = users.find(u => u.username === username);
+  const user = await User.findOne({ username });
   if (!user) return res.status(404).json({ message: 'user not found' });
   if (user.password !== currentPassword) {
     return res.status(400).json({ message: 'current password is incorrect' });
   }
   user.password = newPassword;
+  await user.save();
   return res.json({ message: 'password updated' });
 }
 
