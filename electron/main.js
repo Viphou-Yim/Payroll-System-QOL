@@ -1,9 +1,9 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, fork } = require('child_process');
 const { waitForServer } = require('./utils/waitForServer');
 const { checkMongoDB } = require('./utils/mongoCheck');
-const isDev = require('electron-is-dev');
+const isDev = !app.isPackaged;
 
 let mainWindow;
 let backendProcess;
@@ -53,11 +53,10 @@ function createWindow() {
  */
 async function startBackend() {
   return new Promise((resolve, reject) => {
-    const backPath = path.join(__dirname, '../back');
-    backendProcess = spawn('npm', ['run', 'start'], {
-      cwd: backPath,
+    const backendEntry = path.join(__dirname, '../back/src/index.js');
+    backendProcess = fork(backendEntry, [], {
+      cwd: path.dirname(backendEntry),
       stdio: 'inherit',
-      shell: true,
     });
 
     backendProcess.on('error', (err) => {
@@ -127,8 +126,10 @@ async function initializeApp() {
     console.log('Starting backend...');
     await startBackend();
 
-    console.log('Starting frontend...');
-    await startFrontend();
+    if (isDev) {
+      console.log('Starting frontend...');
+      await startFrontend();
+    }
 
     console.log('Creating window...');
     createWindow();
