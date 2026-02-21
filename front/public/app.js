@@ -165,6 +165,7 @@
     }
     
     allEmployees = r.body || [];
+    renderEmployees();
     
     // Populate attendance employee
     sel.innerHTML = '';
@@ -233,6 +234,73 @@
   }
 
   let currentRecords = [];
+  let currentEmployees = [];
+
+  function getEmployeeFilters() {
+    return {
+      search: ($('empListSearch')?.value || '').toLowerCase().trim(),
+      phone: ($('empListPhone')?.value || '').toLowerCase().trim(),
+      group: $('empListGroup')?.value || ''
+    };
+  }
+
+  function filterEmployees(employees) {
+    const { search, phone, group } = getEmployeeFilters();
+    return (employees || []).filter((employee) => {
+      const nameVal = (employee.name || '').toLowerCase();
+      const phoneVal = (employee.phone || '').toLowerCase();
+      const groupVal = employee.payroll_group || '';
+      if (search && !nameVal.includes(search)) return false;
+      if (phone && !phoneVal.includes(phone)) return false;
+      if (group && groupVal !== group) return false;
+      return true;
+    }).sort((a, b) => (a.name || '').localeCompare((b.name || '')));
+  }
+
+  function renderEmployeesTable(employees) {
+    const container = $('employeesList');
+    const statusEl = $('employeesListStatus');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (!Array.isArray(employees) || employees.length === 0) {
+      container.textContent = 'No employees found';
+      if (statusEl) statusEl.textContent = '0 employees';
+      return;
+    }
+
+    if (statusEl) statusEl.textContent = `${employees.length} employee${employees.length === 1 ? '' : 's'}`;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    const header = document.createElement('tr');
+    ['Name', 'Phone', 'Payroll Group', 'Employee ID'].forEach((title) => {
+      const th = document.createElement('th');
+      th.textContent = title;
+      header.appendChild(th);
+    });
+    thead.appendChild(header);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    employees.forEach((employee) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${employee._id || ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    container.appendChild(wrap);
+  }
+
+  function renderEmployees() {
+    currentEmployees = [...allEmployees];
+    const filtered = filterEmployees(currentEmployees);
+    renderEmployeesTable(filtered);
+  }
+
   function getRecordFilters() {
     return {
       search: ($('recSearch')?.value || '').toLowerCase().trim(),
@@ -310,6 +378,21 @@
   }
 
   $('loadRecords').addEventListener('click', () => { renderRecords(); });
+
+  const loadEmployeesListBtn = $('loadEmployeesList');
+  if (loadEmployeesListBtn) {
+    loadEmployeesListBtn.addEventListener('click', () => {
+      loadEmployees();
+      renderEmployees();
+    });
+  }
+
+  ['empListSearch', 'empListPhone', 'empListGroup'].forEach((id) => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => renderEmployeesTable(filterEmployees(currentEmployees)));
+    el.addEventListener('change', () => renderEmployeesTable(filterEmployees(currentEmployees)));
+  });
 
   function renderRecordsTable(records) {
     const container = $('recordsList');
@@ -471,6 +554,7 @@
     if (route === 'attendance') { loadEmployees(); }
     if (route === 'records') { renderRecords(); }
     if (route === 'records-summary') { loadRecordsSummary(); }
+    if (route === 'employees') { loadEmployees(); renderEmployees(); }
     if (route === 'run') { loadEmployees(); }
     if (route === 'deductions') { loadDeductions(); loadEmployees(); }
     if (route === 'savings') { loadSavings(); }
