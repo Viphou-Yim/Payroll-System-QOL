@@ -42,7 +42,9 @@ router.post('/holds/clear', controller.clearHold);
 
 // Employees - list employees for admin UI
 router.get('/employees', controller.listEmployees);
+router.get('/employees/all', sessionAuth.requireAdmin, controller.listAllEmployees);
 router.post('/employees', sessionAuth.requireAdmin, controller.createEmployee);
+router.patch('/employees/:id/status', sessionAuth.requireAdmin, controller.updateEmployeeStatus);
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);

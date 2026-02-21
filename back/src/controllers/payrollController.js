@@ -465,6 +465,40 @@ async function listEmployees(req, res) {
   }
 }
 
+// Employees list including active/inactive (for employees management table)
+async function listAllEmployees(req, res) {
+  try {
+    const employees = await Employee.find({}).select('_id name payroll_group phone active').sort({ name: 1 });
+    return res.json(employees);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Update employee active status
+async function updateEmployeeStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { active } = req.body || {};
+    if (typeof active !== 'boolean') {
+      return res.status(400).json({ message: 'active (boolean) is required' });
+    }
+
+    const employee = await Employee.findByIdAndUpdate(
+      id,
+      { active },
+      { new: true, runValidators: true }
+    ).select('_id name payroll_group phone active');
+
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+    return res.json({ message: 'Employee status updated', employee });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 
 // Create employee (admin)
 async function createEmployee(req, res) {
@@ -724,6 +758,8 @@ module.exports = {
   getHolds,
   clearHold,
   listEmployees,
+  listAllEmployees,
+  updateEmployeeStatus,
   createEmployee,
   getSavings,
   updateSaving,

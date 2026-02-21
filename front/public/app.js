@@ -257,6 +257,46 @@
     }).sort((a, b) => (a.name || '').localeCompare((b.name || '')));
   }
 
+  async function loadEmployeesForList() {
+    const statusEl = $('employeesListStatus');
+    if (statusEl) statusEl.textContent = 'Loading employees...';
+    const r = await fetchJson('/api/payroll/employees/all');
+    if (r.status !== 200) {
+      currentEmployees = [];
+      renderEmployeesTable([]);
+      if (statusEl) statusEl.textContent = `Error loading employees`;
+      return;
+    }
+    currentEmployees = Array.isArray(r.body) ? r.body : [];
+    renderEmployeesTable(filterEmployees(currentEmployees));
+  }
+
+  async function setEmployeeActive(employeeId, active, checkboxEl) {
+    if (!employeeId || !checkboxEl) return;
+    checkboxEl.disabled = true;
+    const r = await fetchJson(`/api/payroll/employees/${employeeId}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active })
+    });
+    checkboxEl.disabled = false;
+
+    if (r.status !== 200) {
+      checkboxEl.checked = !active;
+      showToast(r.body?.message || 'Failed to update status');
+      return;
+    }
+
+    currentEmployees = currentEmployees.map((employee) => (
+      String(employee._id) === String(employeeId)
+        ? { ...employee, active: !!active }
+        : employee
+    ));
+    showToast('Employee status updated');
+    await loadEmployees();
+    renderEmployeesTable(filterEmployees(currentEmployees));
+  }
+
   function renderEmployeesTable(employees) {
     const container = $('employeesList');
     const statusEl = $('employeesListStatus');
@@ -276,7 +316,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Payroll Group', 'Employee ID'].forEach((title) => {
+    ['Name', 'Phone', 'Payroll Group', 'Active', 'Employee ID'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -287,7 +327,16 @@
     const tbody = document.createElement('tbody');
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${employee._id || ''}</td>`;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td>`;
+      const activeCell = tr.querySelector('.employee-active-cell');
+      const activeCheckbox = document.createElement('input');
+      activeCheckbox.type = 'checkbox';
+      activeCheckbox.checked = !!employee.active;
+      activeCheckbox.setAttribute('aria-label', `Set ${employee.name || 'employee'} active status`);
+      activeCheckbox.addEventListener('change', () => {
+        setEmployeeActive(employee._id, activeCheckbox.checked, activeCheckbox);
+      });
+      activeCell.appendChild(activeCheckbox);
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
@@ -296,7 +345,7 @@
   }
 
   function renderEmployees() {
-    currentEmployees = [...allEmployees];
+    currentEmployees = [...currentEmployees];
     const filtered = filterEmployees(currentEmployees);
     renderEmployeesTable(filtered);
   }
@@ -381,9 +430,8 @@
 
   const loadEmployeesListBtn = $('loadEmployeesList');
   if (loadEmployeesListBtn) {
-    loadEmployeesListBtn.addEventListener('click', () => {
-      loadEmployees();
-      renderEmployees();
+    loadEmployeesListBtn.addEventListener('click', async () => {
+      await loadEmployeesForList();
     });
   }
 
@@ -554,7 +602,7 @@
     if (route === 'attendance') { loadEmployees(); }
     if (route === 'records') { renderRecords(); }
     if (route === 'records-summary') { loadRecordsSummary(); }
-    if (route === 'employees') { loadEmployees(); renderEmployees(); }
+    if (route === 'employees') { loadEmployeesForList(); }
     if (route === 'run') { loadEmployees(); }
     if (route === 'deductions') { loadDeductions(); loadEmployees(); }
     if (route === 'savings') { loadSavings(); }
