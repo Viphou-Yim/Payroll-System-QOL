@@ -56,6 +56,7 @@ router.delete('/deductions/:id', controller.deleteDeduction);
 // Savings
 router.get('/savings', controller.getSavings);
 router.post('/savings/:employeeId', controller.updateSaving);
+router.post('/savings/payout', sessionAuth.requireAdmin, controller.payoutSavingsForFestival);
 
 // Scheduler endpoints (uses persisted scheduler)
 router.post('/schedule/start', scheduleStartValidator, controller.startMonthlyScheduler);

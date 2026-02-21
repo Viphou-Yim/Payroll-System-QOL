@@ -57,4 +57,58 @@ describe('payrollService.calculatePayrollForEmployee', () => {
     expect(res.deductionsApplied.length).toBe(0);
     expect(res.net).toBe(30000);
   });
+
+  test('First-month partial setup can disable profile deductions and savings while using daily pay', () => {
+    const emp = { base_salary: 30000, has_20_deduction: true, has_10day_holding: true };
+    const saving = { amount: 200, accumulated_total: 0 };
+
+    const res = calculatePayrollForEmployee({
+      employee: emp,
+      daysWorked: 20,
+      staticDeductions: [],
+      saving,
+      config: {
+        roundDecimals: 2,
+        flat20Amount: 20,
+        holdingDays: 10,
+        useDailyRateForPartialMonth: true,
+        applyCuts: false,
+        applySavings: false
+      }
+    });
+
+    expect(res.gross).toBe(20000);
+    expect(res.totalDeductions).toBe(0);
+    expect(res.net).toBe(20000);
+    expect(res.withheld).toBe(0);
+    expect(res.carryoverSavings).toBe(0);
+  });
+
+  test('After first full month setup can keep fixed monthly salary and enable profile deductions/savings', () => {
+    const emp = { base_salary: 30000, has_20_deduction: true, has_10day_holding: true };
+    const saving = { amount: 200, accumulated_total: 300 };
+
+    const res = calculatePayrollForEmployee({
+      employee: emp,
+      daysWorked: 20,
+      staticDeductions: [],
+      saving,
+      config: {
+        roundDecimals: 2,
+        flat20Amount: 20,
+        holdingDays: 10,
+        useDailyRateForPartialMonth: false,
+        applyCuts: true,
+        applySavings: true
+      }
+    });
+
+    // gross remains fixed monthly salary even with partial days when daily-rate mode is off
+    expect(res.gross).toBe(30000);
+    // flat 20 + hold(10000) + saving(200)
+    expect(res.totalDeductions).toBe(10220);
+    expect(res.net).toBe(19780);
+    expect(res.withheld).toBe(10000);
+    expect(res.carryoverSavings).toBe(500);
+  });
 });

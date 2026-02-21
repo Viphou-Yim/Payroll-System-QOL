@@ -27,13 +27,16 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const holdingDays = typeof config.holdingDays === 'number' ? config.holdingDays : parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
   // Whether to apply cut rules (flat $20 profile deduction, 10-day holding). Default true for backward compatibility
   const applyCuts = typeof config.applyCuts === 'boolean' ? config.applyCuts : true;
+  const applyHolding = typeof config.applyHolding === 'boolean' ? config.applyHolding : applyCuts;
+  const applySavings = typeof config.applySavings === 'boolean' ? config.applySavings : true;
+  const useDailyRateForPartialMonth = typeof config.useDailyRateForPartialMonth === 'boolean' ? config.useDailyRateForPartialMonth : true;
   // payroll group (e.g., 'cut', 'no-cut', 'monthly')
   const payrollGroup = typeof config.payrollGroup === 'string' ? config.payrollGroup : 'cut';
 
   const base = employee.base_salary;
   const normalizedWorkedDays = roundDown(Math.max(0, Number(daysWorked) || 0), workedDaysDecimals);
   let gross = base;
-  if (normalizedWorkedDays < 30) {
+  if (useDailyRateForPartialMonth && normalizedWorkedDays < 30) {
     gross = (base / 30) * normalizedWorkedDays;
   }
   gross = round(gross, roundDecimals);
@@ -66,7 +69,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   }
 
   let carryoverSavings = 0;
-  if (saving && saving.amount > 0) {
+  if (applySavings && saving && saving.amount > 0) {
     const savingAmount = roundUp(saving.amount, roundDecimals);
     totalDeductions += savingAmount;
     deductionsApplied.push({ type: 'savings', amount: savingAmount, reason: 'monthly saving' });
@@ -74,7 +77,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   }
 
   let withheld = 0;
-  if (applyCuts && employee.has_10day_holding) {
+  if (applyHolding && employee.has_10day_holding) {
     const holdAmount = roundUp((base / 30) * holdingDays, roundDecimals);
     totalDeductions += holdAmount;
     withheld = holdAmount;

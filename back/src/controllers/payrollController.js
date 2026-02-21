@@ -31,6 +31,37 @@ function isValidMonth(month) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
 
+function toYearMonth(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function getCurrentYearMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
+  const startMonth = toYearMonth(employee?.start_date);
+  if (!startMonth) {
+    return {
+      useDailyRateForPartialMonth: true,
+      applyProfileDeductionsAndSavings: true
+    };
+  }
+
+  const isFirstEmploymentMonth = startMonth === payrollMonth;
+  const isFirstMonthPartial = isFirstEmploymentMonth && (Number(daysWorked) || 0) < 30;
+
+  return {
+    useDailyRateForPartialMonth: isFirstEmploymentMonth,
+    applyProfileDeductionsAndSavings: !isFirstMonthPartial
+  };
+}
+
 async function generatePayrollForMonth(req, res) {
   try {
     const { month, payroll_group, force = false } = req.body;
@@ -77,6 +108,9 @@ async function generatePayrollForMonth(req, res) {
 
       const staticDeds = await Deduction.find({ employee: emp._id, month });
       const saving = await Saving.findOne({ employee: emp._id });
+      const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
+      const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
+      const applyHoldingForEmployee = applyCutsForGroup && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
 
       const calc = payrollService.calculatePayrollForEmployee({
         employee: emp,
@@ -88,7 +122,10 @@ async function generatePayrollForMonth(req, res) {
           roundDecimals: ROUND_DECIMALS,
           flat20Amount: CUT_GROUP_20_DEDUCTION_AMOUNT,
           holdingDays: CUT_GROUP_10DAY_HOLDING_DAYS,
-          applyCuts: applyCutsForGroup,
+          applyCuts: applyCutsForGroup && employmentPeriodConfig.applyProfileDeductionsAndSavings,
+          applyHolding: applyHoldingForEmployee,
+          applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
+          useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
           payrollGroup: payroll_group
         }
       });
@@ -183,6 +220,9 @@ async function generatePayrollForEmployee(req, res) {
     const daysWorked = attendance ? attendance.days_worked : 0;
     const staticDeds = await Deduction.find({ employee: emp._id, month });
     const saving = await Saving.findOne({ employee: emp._id });
+    const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
+    const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
+    const applyHoldingForEmployee = applyCutsForEmployee && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
 
     const calc = payrollService.calculatePayrollForEmployee({
       employee: emp,
@@ -194,7 +234,10 @@ async function generatePayrollForEmployee(req, res) {
         roundDecimals: ROUND_DECIMALS,
         flat20Amount: CUT_GROUP_20_DEDUCTION_AMOUNT,
         holdingDays: CUT_GROUP_10DAY_HOLDING_DAYS,
-        applyCuts: applyCutsForEmployee,
+        applyCuts: applyCutsForEmployee && employmentPeriodConfig.applyProfileDeductionsAndSavings,
+        applyHolding: applyHoldingForEmployee,
+        applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
+        useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
         payrollGroup: empPayrollGroup
       }
     });
@@ -492,7 +535,66 @@ async function updateEmployeeStatus(req, res) {
     ).select('_id name payroll_group phone active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    return res.json({ message: 'Employee status updated', employee });
+
+    let released_hold_amount = 0;
+    if (active === false) {
+      const holds = await Deduction.find({ employee: id, type: 'hold' });
+      released_hold_amount = (holds || []).reduce((sum, h) => sum + (Number(h.amount) || 0), 0);
+      if (released_hold_amount > 0) {
+        await Bonuses.create({
+          employee: id,
+          amount: released_hold_amount,
+          reason: '10-day holding payout on exit',
+          month: getCurrentYearMonth()
+        });
+        await Deduction.deleteMany({ employee: id, type: 'hold' });
+      }
+    }
+
+    return res.json({ message: 'Employee status updated', employee, released_hold_amount });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+async function payoutSavingsForFestival(req, res) {
+  try {
+    const { festival, month, employeeId } = req.body || {};
+    const allowed = ['khmer_new_year', 'pchum_ben'];
+    if (!festival || !allowed.includes(festival)) {
+      return res.status(400).json({ message: `festival must be one of: ${allowed.join(', ')}` });
+    }
+    if (!month || !isValidMonth(month)) {
+      return res.status(400).json({ message: 'month must be YYYY-MM' });
+    }
+
+    let savings = [];
+    if (employeeId) {
+      const oneSaving = await Saving.findOne({ employee: employeeId });
+      savings = oneSaving ? [oneSaving] : [];
+    } else {
+      savings = await Saving.find({ accumulated_total: { $gt: 0 } });
+    }
+
+    let totalPayout = 0;
+    let employeesPaid = 0;
+    for (const saving of savings) {
+      if (!saving || (Number(saving.accumulated_total) || 0) <= 0) continue;
+      const amount = Number(saving.accumulated_total) || 0;
+      await Bonuses.create({
+        employee: saving.employee,
+        amount,
+        reason: `Savings payout (${festival})`,
+        month
+      });
+      saving.accumulated_total = 0;
+      await saving.save();
+      totalPayout += amount;
+      employeesPaid += 1;
+    }
+
+    return res.json({ message: 'Savings payout completed', festival, month, employees_paid: employeesPaid, total_payout: totalPayout });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -766,6 +868,7 @@ module.exports = {
   createEmployee,
   getSavings,
   updateSaving,
+  payoutSavingsForFestival,
   upsertAttendance,
   listAttendance,
   createDeduction,
