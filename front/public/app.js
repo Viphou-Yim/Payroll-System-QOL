@@ -240,9 +240,43 @@
   // Inline validation and improved form UX for Attendance
   const attForm = document.getElementById('attendanceForm');
   if (attForm) {
+    const updateAttendancePreview = () => {
+      const previewEl = document.getElementById('attPreview');
+      if (!previewEl) return;
+      const month = attForm.attMonth.value;
+      const absent = parseFloat(attForm.attAbsent.value) || 0;
+      const worked = parseFloat(attForm.attDays.value) || 0;
+      const extraDeduction = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
+      const penalty = parseFloat(attForm.attPenalty?.value || '0') || 0;
+
+      const selectedId = document.getElementById('employeeSelect')?.value;
+      const employee = allEmployees.find((emp) => String(emp._id) === String(selectedId));
+
+      if (!month) {
+        previewEl.textContent = 'Preview: select month to estimate attendance payroll impact.';
+        return;
+      }
+
+      const [year, monthIndex] = month.split('-');
+      const monthDays = new Date(year, monthIndex, 0).getDate();
+      const suggestedWorked = Math.max(0, monthDays - absent);
+
+      if (!employee || employee.base_salary === undefined || employee.base_salary === null) {
+        previewEl.textContent = `Preview: Month days ${monthDays} • Suggested worked ${suggestedWorked} • Extra deductions ${formatMoney(extraDeduction + penalty)}`;
+        return;
+      }
+
+      const baseSalary = Number(employee.base_salary) || 0;
+      const estimatedGross = ((baseSalary / 30) * Math.max(0, worked));
+      const estimatedNetBeforeProfiles = Math.max(0, estimatedGross - extraDeduction - penalty);
+      previewEl.textContent = `Preview: Suggested worked ${suggestedWorked}, entered worked ${worked} • Estimated gross ${formatMoney(estimatedGross)} • Extra deductions ${formatMoney(extraDeduction + penalty)} • Est. net before profile deductions ${formatMoney(estimatedNetBeforeProfiles)}`;
+    };
+
     attForm.addEventListener('input', () => {
       const daysWorked = parseInt(attForm.attDays.value, 10) || 0;
       const daysAbsent = parseInt(attForm.attAbsent.value, 10) || 0;
+      const extraDeduction = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
+      const penalty = parseFloat(attForm.attPenalty?.value || '0') || 0;
       const month = attForm.attMonth.value;
       let maxDays = 31;
       if (month) {
@@ -254,10 +288,16 @@
       let msg = '';
       if (daysWorked + daysAbsent > maxDays) msg = `Days worked + absent (${daysWorked + daysAbsent}) exceeds days in month (${maxDays})`;
       if (daysWorked < 0 || daysAbsent < 0) msg = 'Days must be ≥ 0';
+      if (extraDeduction < 0 || penalty < 0) msg = 'Extra deduction and penalty must be ≥ 0';
       attForm.attDays.setCustomValidity(msg);
       attForm.attAbsent.setCustomValidity(msg);
+      if (attForm.attExtraDeduction) attForm.attExtraDeduction.setCustomValidity(msg);
+      if (attForm.attPenalty) attForm.attPenalty.setCustomValidity(msg);
       document.getElementById('attValidation').textContent = msg;
+      updateAttendancePreview();
     });
+    document.getElementById('employeeSelect')?.addEventListener('change', updateAttendancePreview);
+    document.getElementById('attMonth')?.addEventListener('change', updateAttendancePreview);
     attForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
@@ -265,26 +305,34 @@
       const month = attForm.attMonth.value;
       const days_worked = parseInt(attForm.attDays.value, 10);
       const days_absent = parseInt(attForm.attAbsent.value, 10);
+      const extra_deduction_amount = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
+      const penalty_amount = parseFloat(attForm.attPenalty?.value || '0') || 0;
       const validation = document.getElementById('attValidation');
       if (!employeeId) {
         validation.textContent = resolvedEmployee.error || 'Please select an employee.';
         return;
       }
-      if (attForm.attDays.validity.customError || attForm.attAbsent.validity.customError) {
-        validation.textContent = attForm.attDays.validationMessage || attForm.attAbsent.validationMessage;
+      if (attForm.attDays.validity.customError || attForm.attAbsent.validity.customError || (attForm.attExtraDeduction && attForm.attExtraDeduction.validity.customError) || (attForm.attPenalty && attForm.attPenalty.validity.customError)) {
+        validation.textContent = attForm.attDays.validationMessage || attForm.attAbsent.validationMessage || attForm.attExtraDeduction?.validationMessage || attForm.attPenalty?.validationMessage;
         return;
       }
       validation.textContent = '';
-      const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent }) });
+      const r = await fetchJson('/api/payroll/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId, month, days_worked, days_absent, extra_deduction_amount, penalty_amount })
+      });
       if (r.status === 200) {
         document.getElementById('attMsg').textContent = '';
         showToast('Attendance saved');
+        updateAttendancePreview();
       } else if (r.status === 401) {
         document.getElementById('attMsg').textContent = 'Session expired. Please sign in again.';
       } else {
         document.getElementById('attMsg').textContent = `Error: ${JSON.stringify(r.body) || r.status}`;
       }
     });
+    updateAttendancePreview();
   }
 
   let currentRecords = [];
@@ -323,6 +371,76 @@
     }
     currentEmployees = Array.isArray(r.body) ? r.body : [];
     renderEmployeesTable(filterEmployees(currentEmployees));
+  }
+
+  function parseYesNo(value) {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (['y', 'yes', 'true', '1'].includes(normalized)) return true;
+    if (['n', 'no', 'false', '0'].includes(normalized)) return false;
+    return null;
+  }
+
+  async function editEmployee(employee) {
+    if (!employee || !employee._id) return;
+    const name = window.prompt('Full name', employee.name || '');
+    if (name === null) return;
+
+    const phone = window.prompt('Phone', employee.phone || '');
+    if (phone === null) return;
+
+    const baseSalaryRaw = window.prompt('Base salary', String(employee.base_salary ?? '0'));
+    if (baseSalaryRaw === null) return;
+    const baseSalary = parseFloat(baseSalaryRaw);
+    if (Number.isNaN(baseSalary)) {
+      showToast('Base salary must be a number');
+      return;
+    }
+
+    const payrollGroup = window.prompt('Payroll group (cut, no-cut, monthly)', employee.payroll_group || '');
+    if (payrollGroup === null) return;
+    const group = String(payrollGroup).trim();
+    if (!['cut', 'no-cut', 'monthly'].includes(group)) {
+      showToast('Payroll group must be cut, no-cut, or monthly');
+      return;
+    }
+
+    const has20Input = window.prompt('Apply $20 deduction? (yes/no)', employee.has_20_deduction ? 'yes' : 'no');
+    if (has20Input === null) return;
+    const has20 = parseYesNo(has20Input);
+    if (has20 === null) {
+      showToast('Please enter yes or no for $20 deduction');
+      return;
+    }
+
+    const has10Input = window.prompt('Apply 10-day holding? (yes/no)', employee.has_10day_holding ? 'yes' : 'no');
+    if (has10Input === null) return;
+    const has10 = parseYesNo(has10Input);
+    if (has10 === null) {
+      showToast('Please enter yes or no for 10-day holding');
+      return;
+    }
+
+    const r = await fetchJson(`/api/payroll/employees/${employee._id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: String(name).trim(),
+        phone: String(phone).trim(),
+        base_salary: baseSalary,
+        payroll_group: group,
+        has_20_deduction: has20,
+        has_10day_holding: has10
+      })
+    });
+
+    if (r.status !== 200) {
+      showToast(r.body?.message || 'Failed to update employee');
+      return;
+    }
+
+    showToast('Employee updated');
+    await loadEmployeesForList();
+    await loadEmployees();
   }
 
   async function setEmployeeActive(employeeId, active, checkboxEl) {
@@ -370,7 +488,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Payroll Group', 'Active', 'Employee ID'].forEach((title) => {
+    ['Name', 'Phone', 'Payroll Group', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -381,7 +499,7 @@
     const tbody = document.createElement('tbody');
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td>`;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
       const activeCell = tr.querySelector('.employee-active-cell');
       const activeCheckbox = document.createElement('input');
       activeCheckbox.type = 'checkbox';
@@ -391,6 +509,17 @@
         setEmployeeActive(employee._id, activeCheckbox.checked, activeCheckbox);
       });
       activeCell.appendChild(activeCheckbox);
+
+      const actionsCell = tr.querySelector('.employee-actions-cell');
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'secondary';
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', () => {
+        editEmployee(employee);
+      });
+      actionsCell.appendChild(editBtn);
+
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);

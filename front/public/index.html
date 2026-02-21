@@ -308,8 +308,20 @@
             <div>
               <label for="attAbsent">Days absent</label>
               <input id="attAbsent" type="number" min="0" step="1" value="0" required />
+              <div class="field-help">Preferred flow: enter absent days for the month and keep worked days as month days minus absent.</div>
             </div>
           </div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="attExtraDeduction">Extra deduction</label>
+              <input id="attExtraDeduction" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div>
+              <label for="attPenalty">Penalty</label>
+              <input id="attPenalty" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+          <div id="attPreview" class="preview-card">Preview: select employee and month.</div>
           <div id="attValidation" style="color:#b00;font-size:0.95em;margin-bottom:8px;"></div>
           <button id="saveAtt" type="submit">Save Attendance</button>
         </form>

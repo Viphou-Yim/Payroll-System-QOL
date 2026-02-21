@@ -500,7 +500,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -511,8 +511,82 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone active').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Update employee profile fields (admin)
+async function updateEmployee(req, res) {
+  try {
+    const { id } = req.params;
+    const employee = await Employee.findById(id);
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    const {
+      name,
+      phone,
+      base_salary,
+      payroll_group,
+      has_20_deduction,
+      has_10day_holding,
+      has_debt_deduction,
+      start_date
+    } = req.body || {};
+
+    const nextName = name === undefined ? employee.name : String(name || '').trim();
+    const nextPhone = phone === undefined ? employee.phone : String(phone || '').trim();
+    const nextGroup = payroll_group === undefined ? employee.payroll_group : String(payroll_group || '').trim();
+    const nextBaseSalary = base_salary === undefined ? Number(employee.base_salary) : Number(base_salary);
+    const nextHas20 = has_20_deduction === undefined ? !!employee.has_20_deduction : !!has_20_deduction;
+    const nextHas10dayHolding = has_10day_holding === undefined ? !!employee.has_10day_holding : !!has_10day_holding;
+    const nextHasDebt = has_debt_deduction === undefined ? !!employee.has_debt_deduction : !!has_debt_deduction;
+
+    if (!nextName) return res.status(400).json({ message: 'name is required' });
+    if (Number.isNaN(nextBaseSalary)) return res.status(400).json({ message: 'base_salary must be a number' });
+
+    const allowed = ['cut', 'no-cut', 'monthly'];
+    if (!allowed.includes(nextGroup)) {
+      return res.status(400).json({ message: `payroll_group must be one of: ${allowed.join(', ')}` });
+    }
+    if ((nextHas20 || nextHas10dayHolding) && nextGroup === 'no-cut') {
+      return res.status(400).json({
+        message: 'payroll_group "no-cut" is incompatible with selected payroll flags',
+        compatible_groups: ['cut', 'monthly']
+      });
+    }
+
+    const duplicate = await Employee.findOne({
+      _id: { $ne: id },
+      name: nextName,
+      phone: nextPhone,
+      active: true
+    });
+    if (duplicate) {
+      return res.status(409).json({ message: 'Another active employee already has the same name + phone' });
+    }
+
+    const update = {
+      name: nextName,
+      phone: nextPhone,
+      base_salary: nextBaseSalary,
+      payroll_group: nextGroup,
+      has_20_deduction: nextHas20,
+      has_10day_holding: nextHas10dayHolding,
+      has_debt_deduction: nextHasDebt
+    };
+
+    if (start_date !== undefined) {
+      update.start_date = start_date ? new Date(start_date) : null;
+    }
+
+    const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
+      .select('_id name payroll_group phone active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+
+    return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -682,14 +756,25 @@ async function clearHold(req, res) {
 // Attendance endpoints
 async function upsertAttendance(req, res) {
   try {
-    const { employeeId, month, days_worked, days_absent = 0 } = req.body;
+    const {
+      employeeId,
+      month,
+      days_worked,
+      days_absent = 0,
+      extra_deduction_amount = 0,
+      penalty_amount = 0
+    } = req.body;
     if (!employeeId || !month || typeof days_worked !== 'number') return res.status(400).json({ message: 'employeeId, month, and days_worked (number) are required' });
     if (!isValidMonth(month)) return res.status(400).json({ message: 'month must be YYYY-MM' });
     if (days_worked < 0 || days_worked > 31) return res.status(400).json({ message: 'days_worked must be between 0 and 31' });
     if (days_absent < 0) return res.status(400).json({ message: 'days_absent must be non-negative' });
+    if (Number(extra_deduction_amount) < 0) return res.status(400).json({ message: 'extra_deduction_amount must be non-negative' });
+    if (Number(penalty_amount) < 0) return res.status(400).json({ message: 'penalty_amount must be non-negative' });
 
     const roundedDaysWorked = Math.floor(days_worked * 10) / 10;
     const roundedDaysAbsent = Math.ceil((Number(days_absent) || 0) * 10) / 10;
+    const roundedExtraDeduction = Math.ceil((Number(extra_deduction_amount) || 0) * 100) / 100;
+    const roundedPenalty = Math.ceil((Number(penalty_amount) || 0) * 100) / 100;
 
     // ensure employee exists
     const emp = await Employee.findById(employeeId);
@@ -700,7 +785,36 @@ async function upsertAttendance(req, res) {
       { days_worked: roundedDaysWorked, days_absent: roundedDaysAbsent },
       { upsert: true, new: true }
     );
-    return res.json({ message: 'Attendance saved', record: rec });
+
+    const attendanceExtraReason = 'Attendance extra deduction';
+    const attendancePenaltyReason = 'Attendance penalty';
+
+    if (roundedExtraDeduction > 0) {
+      await Deduction.findOneAndUpdate(
+        { employee: employeeId, month, type: 'other', reason: attendanceExtraReason },
+        { amount: roundedExtraDeduction },
+        { upsert: true, new: true }
+      );
+    } else {
+      await Deduction.deleteOne({ employee: employeeId, month, type: 'other', reason: attendanceExtraReason });
+    }
+
+    if (roundedPenalty > 0) {
+      await Deduction.findOneAndUpdate(
+        { employee: employeeId, month, type: 'damage', reason: attendancePenaltyReason },
+        { amount: roundedPenalty },
+        { upsert: true, new: true }
+      );
+    } else {
+      await Deduction.deleteOne({ employee: employeeId, month, type: 'damage', reason: attendancePenaltyReason });
+    }
+
+    return res.json({
+      message: 'Attendance saved',
+      record: rec,
+      extra_deduction_amount: roundedExtraDeduction,
+      penalty_amount: roundedPenalty
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -863,6 +977,7 @@ module.exports = {
   clearHold,
   listEmployees,
   listAllEmployees,
+  updateEmployee,
   updateEmployeeStatus,
   createEmployee,
   getSavings,
