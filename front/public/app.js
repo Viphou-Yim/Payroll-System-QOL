@@ -631,9 +631,9 @@
   function showRoute() {
     const rawHash = (window.location.hash || '').replace('#','');
     const authed = window.__authLoggedIn === true;
-    let route = rawHash || (authed ? 'attendance' : 'login');
+    let route = rawHash || (authed ? 'dashboard' : 'login');
     if (!authed && route !== 'login' && route !== 'signup') route = 'login';
-    if (authed && (route === 'login' || route === 'signup')) route = 'attendance';
+    if (authed && (route === 'login' || route === 'signup')) route = 'dashboard';
     if (!rawHash && !authed) {
       // keep landing page without hash for login
     }
@@ -655,6 +655,7 @@
     const activeTab = document.getElementById('tab-' + route);
     if (activeTab) activeTab.classList.add('active');
     // Grouping: visually separate
+    if (route === 'dashboard') { loadDashboard(); }
     if (route === 'attendance') { loadEmployees(); }
     if (route === 'records') { renderRecords(); }
     if (route === 'records-summary') { loadRecordsSummary(); }
@@ -667,6 +668,74 @@
     if (route === 'account') { setupAccountPage(); }
     if (route === 'employee-add') { setupEmployeeAddPage(); }
   }
+
+  function getCurrentMonth() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    return `${now.getFullYear()}-${month}`;
+  }
+
+  function setDashboardValues({ payrollTotal, savingsHeld, debtTotal, debtEmployeeCount }) {
+    const payrollEl = $('dashPayrollTotal');
+    const savingsEl = $('dashSavingsHeld');
+    const debtTotalEl = $('dashDebtTotal');
+    const debtMetaEl = $('dashDebtMeta');
+    if (payrollEl) payrollEl.textContent = formatMoney(payrollTotal);
+    if (savingsEl) savingsEl.textContent = formatMoney(savingsHeld);
+    if (debtTotalEl) debtTotalEl.textContent = formatMoney(debtTotal);
+    if (debtMetaEl) {
+      const noun = debtEmployeeCount === 1 ? 'employee' : 'employees';
+      debtMetaEl.textContent = `${debtEmployeeCount} ${noun} with debt`;
+    }
+  }
+
+  async function loadDashboard() {
+    const monthInput = $('dashMonth');
+    const status = $('dashStatus');
+    if (monthInput && !monthInput.value) monthInput.value = getCurrentMonth();
+    const month = monthInput?.value || getCurrentMonth();
+
+    if (status) {
+      status.style.display = '';
+      status.textContent = 'Loading';
+    }
+
+    const [recordsResp, savingsResp, deductionsResp] = await Promise.all([
+      fetchJson(`/api/payroll/records?month=${encodeURIComponent(month)}`),
+      fetchJson('/api/payroll/savings'),
+      fetchJson('/api/payroll/deductions')
+    ]);
+
+    if (recordsResp.status !== 200 || savingsResp.status !== 200 || deductionsResp.status !== 200) {
+      setDashboardValues({ payrollTotal: 0, savingsHeld: 0, debtTotal: 0, debtEmployeeCount: 0 });
+      if (status) status.textContent = 'Error';
+      return;
+    }
+
+    const records = Array.isArray(recordsResp.body) ? recordsResp.body : [];
+    const savings = Array.isArray(savingsResp.body) ? savingsResp.body : [];
+    const deductions = Array.isArray(deductionsResp.body) ? deductionsResp.body : [];
+
+    const payrollTotal = records.reduce((sum, record) => sum + (parseFloat(record.net_salary) || 0), 0);
+    const savingsHeld = savings.reduce((sum, saving) => sum + (parseFloat(saving.accumulated_total) || 0), 0);
+
+    const debtRows = deductions.filter((deduction) => {
+      const isDebtType = deduction.type === 'debt' || deduction.type === 'monthly_debt';
+      if (!isDebtType) return false;
+      if (!month) return true;
+      return deduction.month === month;
+    });
+    const debtTotal = debtRows.reduce((sum, deduction) => sum + (parseFloat(deduction.amount) || 0), 0);
+    const debtEmployeeCount = new Set(
+      debtRows.map((deduction) => deduction.employee?._id || deduction.employee).filter(Boolean)
+    ).size;
+
+    setDashboardValues({ payrollTotal, savingsHeld, debtTotal, debtEmployeeCount });
+    if (status) status.style.display = 'none';
+  }
+
+  if ($('loadDashboard')) $('loadDashboard').addEventListener('click', loadDashboard);
+  if ($('dashMonth')) $('dashMonth').addEventListener('change', loadDashboard);
 
   function setupLoginPage() {
     const form = document.getElementById('loginFormPage');
@@ -684,7 +753,7 @@
       if (r.status === 200) {
         window.__sessionExpiredNotified = false;
         status.textContent = '';
-        window.location.hash = '#attendance';
+        window.location.hash = '#dashboard';
         refreshMe();
       } else {
         status.textContent = 'Invalid credentials';
