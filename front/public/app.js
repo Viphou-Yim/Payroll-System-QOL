@@ -1479,6 +1479,7 @@
     return `
       <div class="run-result success">
         <div class="run-title">Payroll generated successfully.</div>
+        <div class="run-row run-note">Salary breakdown (rounded to 2 decimals)</div>
         <div class="run-row"><span class="run-label">Employee:</span> <strong class="run-employee">${escapeHtml(employeeText)}</strong></div>
         <div class="run-row"><span class="run-label">Month:</span> ${escapeHtml(monthText)}</div>
         <div class="run-row"><span class="run-label">Gross salary:</span> ${amountHtml(record?.gross_salary, 'revenue')}</div>
@@ -1499,7 +1500,12 @@
     const context = getRunEmployeeContext();
     const employeeId = context.employeeId;
     const empName = context.label;
-    preview.textContent = `Preview: ${empName} • ${month || 'Select month'} • Gross: -- • Net: -- • Deductions: --`;
+    preview.innerHTML = `
+      <div><strong>Preview</strong>: ${escapeHtml(empName)} • ${escapeHtml(month || 'Select month')}</div>
+      <div>Gross: -- • Total deductions: -- • Net: --</div>
+      <div class="run-note">Rounding: amounts are displayed to 2 decimals.</div>
+      <div class="run-note">Deduction explanation: no payroll record found yet for this month.</div>
+    `;
     if (!employeeId || !month) return;
     clearTimeout(runPreviewTimer);
     runPreviewTimer = setTimeout(async () => {
@@ -1507,8 +1513,16 @@
       if (r.status !== 200 || !Array.isArray(r.body)) return;
       const match = r.body.find(rec => rec.employee && rec.employee._id === employeeId);
       if (!match) return;
-      const deductionsCount = Array.isArray(match.deductions) ? match.deductions.length : 0;
-      preview.textContent = `Preview: ${empName} • ${month} • Gross: ${formatMoney(match.gross_salary)} • Net: ${formatMoney(match.net_salary)} • Deductions: ${deductionsCount}`;
+      const deductions = Array.isArray(match.deductions) ? match.deductions : [];
+      const explanation = deductions.length
+        ? deductions.map((deduction) => `${deduction.type || 'deduction'} ${formatMoney(deduction.amount)}${deduction.reason ? ` (${deduction.reason})` : ''}`).join('; ')
+        : 'None';
+      preview.innerHTML = `
+        <div><strong>Preview</strong>: ${escapeHtml(empName)} • ${escapeHtml(month)}</div>
+        <div>Gross: ${escapeHtml(formatMoney(match.gross_salary))} • Total deductions: ${escapeHtml(formatMoney(match.total_deductions))} • Net: ${escapeHtml(formatMoney(match.net_salary))}</div>
+        <div class="run-note">Rounding: amounts are displayed to 2 decimals.</div>
+        <div class="run-note">Deduction explanation: ${escapeHtml(explanation)}</div>
+      `;
     }, 250);
   }
   $('runEmployeeSelect').addEventListener('change', updateRunPreview);

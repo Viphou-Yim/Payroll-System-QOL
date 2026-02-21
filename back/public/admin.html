@@ -98,6 +98,7 @@
         <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
         <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
         <label><input type="checkbox" id="runForce"/> Force</label>
+        <div id="runPreviewLegacy" style="margin-top:10px;background:#f9f9f9;border:1px solid #eee;padding:8px;border-radius:6px;">Preview: select employee and month.</div>
         <button id="runPayrollEmp">Run Payroll</button>
         <div id="runResp"></div>
       </div>
@@ -403,6 +404,71 @@
       return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatLegacyRunResult(record, employeeLabel) {
+      const deductions = Array.isArray(record && record.deductions) ? record.deductions : [];
+      const deductionHtml = deductions.length
+        ? `<ul>${deductions.map((deduction) => `<li>${escapeHtml(deduction.type || 'deduction')}: ${escapeHtml(formatMoney(deduction.amount))}${deduction.reason ? ` (${escapeHtml(deduction.reason)})` : ''}</li>`).join('')}</ul>`
+        : '<div>none</div>';
+
+      return `
+        <div style="line-height:1.4">
+          <div><strong>Payroll generated successfully.</strong></div>
+          <div style="color:#666">Salary breakdown (rounded to 2 decimals)</div>
+          <div><strong>Employee:</strong> ${escapeHtml(employeeLabel || 'Employee')}</div>
+          <div><strong>Month:</strong> ${escapeHtml(record && record.month ? record.month : '--')}</div>
+          <div><strong>Gross salary:</strong> ${escapeHtml(formatMoney(record && record.gross_salary))}</div>
+          <div><strong>Total deductions:</strong> ${escapeHtml(formatMoney(record && record.total_deductions))}</div>
+          <div><strong>Net salary:</strong> ${escapeHtml(formatMoney(record && record.net_salary))}</div>
+          <div><strong>Bonuses:</strong> ${escapeHtml(formatMoney(record && record.bonuses))}</div>
+          <div><strong>Withheld amount:</strong> ${escapeHtml(formatMoney(record && record.withheld_amount))}</div>
+          <div><strong>Carryover savings:</strong> ${escapeHtml(formatMoney(record && record.carryover_savings))}</div>
+          <div><strong>Deduction explanation:</strong></div>
+          ${deductionHtml}
+        </div>
+      `;
+    }
+
+    async function updateLegacyRunPreview() {
+      const preview = document.getElementById('runPreviewLegacy');
+      if (!preview) return;
+      const runEmployeeSelect = document.getElementById('runEmployeeSelect');
+      const employeeId = runEmployeeSelect.value;
+      const employeeLabel = runEmployeeSelect.selectedOptions[0] ? runEmployeeSelect.selectedOptions[0].textContent : 'Select employee';
+      const month = document.getElementById('runMonth').value;
+
+      preview.innerHTML = `
+        <div><strong>Preview</strong>: ${escapeHtml(employeeLabel)} • ${escapeHtml(month || 'Select month')}</div>
+        <div>Gross: -- • Total deductions: -- • Net: --</div>
+        <div style="color:#666">Rounding: amounts are displayed to 2 decimals.</div>
+        <div style="color:#666">Deduction explanation: no payroll record found yet for this month.</div>
+      `;
+
+      if (!employeeId || !month) return;
+      const r = await fetchJson(`/api/payroll/records?month=${encodeURIComponent(month)}`);
+      if (r.status !== 200 || !Array.isArray(r.body)) return;
+      const match = r.body.find((rec) => rec.employee && rec.employee._id === employeeId);
+      if (!match) return;
+      const deductions = Array.isArray(match.deductions) ? match.deductions : [];
+      const explanation = deductions.length
+        ? deductions.map((deduction) => `${deduction.type || 'deduction'} ${formatMoney(deduction.amount)}${deduction.reason ? ` (${deduction.reason})` : ''}`).join('; ')
+        : 'None';
+      preview.innerHTML = `
+        <div><strong>Preview</strong>: ${escapeHtml(employeeLabel)} • ${escapeHtml(month)}</div>
+        <div>Gross: ${escapeHtml(formatMoney(match.gross_salary))} • Total deductions: ${escapeHtml(formatMoney(match.total_deductions))} • Net: ${escapeHtml(formatMoney(match.net_salary))}</div>
+        <div style="color:#666">Rounding: amounts are displayed to 2 decimals.</div>
+        <div style="color:#666">Deduction explanation: ${escapeHtml(explanation)}</div>
+      `;
+    }
+
     function setDashboardValues({ payrollTotal, savingsHeld, debtTotal, debtEmployeeCount }) {
       document.getElementById('dashPayrollTotal').textContent = formatMoney(payrollTotal);
       document.getElementById('dashSavingsHeld').textContent = formatMoney(savingsHeld);
@@ -484,6 +550,9 @@
     // init login and employee data
     loadEmployees();
     refreshMe();
+    document.getElementById('runEmployeeSelect').addEventListener('change', updateLegacyRunPreview);
+    document.getElementById('runMonth').addEventListener('input', updateLegacyRunPreview);
+    document.getElementById('runMonth').addEventListener('change', updateLegacyRunPreview);
     document.getElementById('runPayrollEmp').addEventListener('click', async () => {
       const employeeId = document.getElementById('runEmployeeSelect').value;
       const month = document.getElementById('runMonth').value;
@@ -496,7 +565,10 @@
       const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp }) });
       const el = document.getElementById('runResp');
       if (r.status === 200) {
-        el.textContent = 'Success: ' + JSON.stringify(r.body.payrollRecord || r.body, null, 2);
+        const record = r.body.payrollRecord || r.body;
+        const employeeLabel = document.getElementById('runEmployeeSelect').selectedOptions[0] ? document.getElementById('runEmployeeSelect').selectedOptions[0].textContent : 'Employee';
+        el.innerHTML = formatLegacyRunResult(record, employeeLabel);
+        updateLegacyRunPreview();
       } else {
         el.textContent = 'Error: ' + JSON.stringify(r.body || r.status);
       }
@@ -505,6 +577,7 @@
     // init
     loadEmployees();
     loadRunEmployees();
+    updateLegacyRunPreview();
 
     document.getElementById('startSched').addEventListener('click', async () => {
       const payroll_group = document.getElementById('schedGroup').value;
