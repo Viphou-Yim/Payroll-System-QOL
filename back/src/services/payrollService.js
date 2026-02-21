@@ -33,8 +33,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const base = employee.base_salary;
   const normalizedWorkedDays = roundDown(Math.max(0, Number(daysWorked) || 0), workedDaysDecimals);
   let gross = base;
-  // For 'monthly' group, pay full base regardless of days worked (monthly pays at month end)
-  if (payrollGroup !== 'monthly' && normalizedWorkedDays < 30) {
+  if (normalizedWorkedDays < 30) {
     gross = (base / 30) * normalizedWorkedDays;
   }
   gross = round(gross, roundDecimals);
