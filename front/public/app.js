@@ -1,10 +1,21 @@
 (function(){
   const API = window.API_BASE || '';
   async function fetchJson(url, options = {}) {
+    const skipSessionHandling = options.skipSessionHandling === true;
+    delete options.skipSessionHandling;
     options.headers = options.headers || {};
     options.credentials = 'include'; // send cookies for session auth
     const res = await fetch((url.startsWith('http') ? url : API + url), options);
     const body = await res.json().catch(()=> ({}));
+
+    const isAuthRoute = (url || '').includes('/api/auth/');
+    if (res.status === 401 && !isAuthRoute && !skipSessionHandling && !window.__sessionExpiredNotified) {
+      window.__sessionExpiredNotified = true;
+      showToast('Session expired. Please sign in again.');
+      showAuthState(false);
+      window.location.hash = '#login';
+    }
+
     return { status: res.status, body, res };
   }
 
@@ -29,6 +40,41 @@
   }
 
   let allEmployees = [];
+
+  function resolveEmployeeFromInputs(selectId, nameId, phoneId) {
+    const selectedId = $(selectId)?.value;
+    if (selectedId) return { employeeId: selectedId };
+
+    const name = ($(nameId)?.value || '').trim().toLowerCase();
+    const phone = ($(phoneId)?.value || '').trim().toLowerCase();
+
+    if (!name && !phone) {
+      return { employeeId: '', error: 'Please select an employee, or enter name/phone to match one.' };
+    }
+
+    const matches = allEmployees.filter((employee) => {
+      const employeeName = (employee.name || '').toLowerCase();
+      const employeePhone = (employee.phone || '').toLowerCase();
+      const nameMatch = !name || employeeName.includes(name);
+      const phoneMatch = !phone || employeePhone.includes(phone);
+      return nameMatch && phoneMatch;
+    });
+
+    if (matches.length === 1) {
+      const matched = matches[0];
+      const sel = $(selectId);
+      if (sel) sel.value = matched._id;
+      if ($(nameId)) $(nameId).value = matched.name || '';
+      if ($(phoneId)) $(phoneId).value = matched.phone || '';
+      return { employeeId: matched._id };
+    }
+
+    if (matches.length === 0) {
+      return { employeeId: '', error: 'No employee matched that name/phone. Select from dropdown or refine your search.' };
+    }
+
+    return { employeeId: '', error: 'Multiple employees matched. Please choose one from the dropdown.' };
+  }
 
   function createEmployeeOption(e) {
     const opt = document.createElement('option');
@@ -214,19 +260,27 @@
     });
     attForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const employeeId = attForm.employeeSelect.value;
+      const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
+      const employeeId = resolvedEmployee.employeeId;
       const month = attForm.attMonth.value;
       const days_worked = parseInt(attForm.attDays.value, 10);
       const days_absent = parseInt(attForm.attAbsent.value, 10);
       const validation = document.getElementById('attValidation');
+      if (!employeeId) {
+        validation.textContent = resolvedEmployee.error || 'Please select an employee.';
+        return;
+      }
       if (attForm.attDays.validity.customError || attForm.attAbsent.validity.customError) {
         validation.textContent = attForm.attDays.validationMessage || attForm.attAbsent.validationMessage;
         return;
       }
+      validation.textContent = '';
       const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent }) });
       if (r.status === 200) {
         document.getElementById('attMsg').textContent = '';
         showToast('Attendance saved');
+      } else if (r.status === 401) {
+        document.getElementById('attMsg').textContent = 'Session expired. Please sign in again.';
       } else {
         document.getElementById('attMsg').textContent = `Error: ${JSON.stringify(r.body) || r.status}`;
       }
@@ -516,8 +570,9 @@
   });
 
   async function refreshMe() {
-    const r = await fetchJson('/api/auth/me');
+    const r = await fetchJson('/api/auth/me', { skipSessionHandling: true });
     if (r.status === 200) {
+      window.__sessionExpiredNotified = false;
       showAuthState(true, r.body.user);
     } else {
       showAuthState(false);
@@ -550,6 +605,7 @@
     const r = await fetchJson('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
     $('loginBtn').disabled = false;
     if (r.status === 200) {
+      window.__sessionExpiredNotified = false;
       $('loginStatus').textContent = '';
       showAuthState(true, r.body.user);
       await loadEmployees();
@@ -626,6 +682,7 @@
       const r = await fetchJson('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
       loginBtn.disabled = false;
       if (r.status === 200) {
+        window.__sessionExpiredNotified = false;
         status.textContent = '';
         window.location.hash = '#attendance';
         refreshMe();
@@ -987,14 +1044,19 @@
   if (dedForm) {
     dedForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const employeeId = $('dedEmployeeSelect').value;
+      const resolvedEmployee = resolveEmployeeFromInputs('dedEmployeeSelect', 'dedEmpName', 'dedEmpPhone');
+      const employeeId = resolvedEmployee.employeeId;
       const type = $('dedType').value;
       const amount = parseFloat($('dedAmount').value);
       const month = $('dedMonth').value;
       const reason = $('dedReason').value;
       const validation = $('dedValidation');
-      if (!employeeId || !month) {
-        validation.textContent = 'Employee and month are required.';
+      if (!employeeId) {
+        validation.textContent = resolvedEmployee.error || 'Employee is required.';
+        return;
+      }
+      if (!month) {
+        validation.textContent = 'Month is required.';
         return;
       }
       if (!amount || amount <= 0) {
@@ -1152,7 +1214,8 @@
   if (runForm) {
     runForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const employeeId = $('runEmployeeSelect').value;
+      const resolvedEmployee = resolveEmployeeFromInputs('runEmployeeSelect', 'runEmpName', 'runEmpPhone');
+      const employeeId = resolvedEmployee.employeeId;
       const month = $('runMonth').value;
       const idemp = $('runIdemp').value.trim();
       const force = $('runForce').checked;
@@ -1161,8 +1224,12 @@
         const ok = window.confirm('Force run will overwrite existing payroll for this month. Continue?');
         if (!ok) return;
       }
-      if (!employeeId || !month) {
-        validation.textContent = 'Employee and month are required.';
+      if (!employeeId) {
+        validation.textContent = resolvedEmployee.error || 'Employee is required.';
+        return;
+      }
+      if (!month) {
+        validation.textContent = 'Month is required.';
         return;
       }
       validation.textContent = '';
