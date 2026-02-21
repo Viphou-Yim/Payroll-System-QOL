@@ -10,8 +10,19 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
+function roundDown(value, decimals) {
+  const factor = Math.pow(10, decimals);
+  return Math.floor(value * factor) / factor;
+}
+
+function roundUp(value, decimals) {
+  const factor = Math.pow(10, decimals);
+  return Math.ceil(value * factor) / factor;
+}
+
 function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeductions = [], saving = null, bonuses = [], config = {} }) {
   const roundDecimals = typeof config.roundDecimals === 'number' ? config.roundDecimals : 2;
+  const workedDaysDecimals = typeof config.workedDaysDecimals === 'number' ? config.workedDaysDecimals : 1;
   const flat20Amount = typeof config.flat20Amount === 'number' ? config.flat20Amount : parseFloat(process.env.CUT_GROUP_20_DEDUCTION_AMOUNT || '20');
   const holdingDays = typeof config.holdingDays === 'number' ? config.holdingDays : parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
   // Whether to apply cut rules (flat $20 profile deduction, 10-day holding). Default true for backward compatibility
@@ -20,10 +31,11 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const payrollGroup = typeof config.payrollGroup === 'string' ? config.payrollGroup : 'cut';
 
   const base = employee.base_salary;
+  const normalizedWorkedDays = roundDown(Math.max(0, Number(daysWorked) || 0), workedDaysDecimals);
   let gross = base;
   // For 'monthly' group, pay full base regardless of days worked (monthly pays at month end)
-  if (payrollGroup !== 'monthly' && daysWorked < 30) {
-    gross = (base / 30) * daysWorked;
+  if (payrollGroup !== 'monthly' && normalizedWorkedDays < 30) {
+    gross = (base / 30) * normalizedWorkedDays;
   }
   gross = round(gross, roundDecimals);
 
@@ -37,7 +49,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const deductionsApplied = [];
 
   if (applyCuts && employee.has_20_deduction) {
-    const amount = round(flat20Amount, roundDecimals);
+    const amount = roundUp(flat20Amount, roundDecimals);
     totalDeductions += amount;
     deductionsApplied.push({ type: 'profile_20_flat', amount, reason: `flat $${amount} profile deduction` });
   }
@@ -45,24 +57,26 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   // static deductions
   for (const d of staticDeductions || []) {
     // monthly_debt entries are only applied when running payroll for 'monthly' group AND the month is complete (daysWorked >= 30)
-    if (d.type === 'monthly_debt' && payrollGroup === 'monthly' && daysWorked < 30) {
+    if (d.type === 'monthly_debt' && payrollGroup === 'monthly' && normalizedWorkedDays < 30) {
       // skip applying yet; will be applied when month reaches 30 days
       continue;
     }
-    totalDeductions += d.amount;
-    deductionsApplied.push({ type: d.type, amount: d.amount, reason: d.reason || '' });
+    const deductionAmount = roundUp(d.amount || 0, roundDecimals);
+    totalDeductions += deductionAmount;
+    deductionsApplied.push({ type: d.type, amount: deductionAmount, reason: d.reason || '' });
   }
 
   let carryoverSavings = 0;
   if (saving && saving.amount > 0) {
-    totalDeductions += saving.amount;
-    deductionsApplied.push({ type: 'savings', amount: saving.amount, reason: 'monthly saving' });
-    carryoverSavings = round((saving.accumulated_total || 0) + saving.amount, roundDecimals);
+    const savingAmount = roundUp(saving.amount, roundDecimals);
+    totalDeductions += savingAmount;
+    deductionsApplied.push({ type: 'savings', amount: savingAmount, reason: 'monthly saving' });
+    carryoverSavings = round((saving.accumulated_total || 0) + savingAmount, roundDecimals);
   }
 
   let withheld = 0;
   if (applyCuts && employee.has_10day_holding) {
-    const holdAmount = round((base / 30) * holdingDays, roundDecimals);
+    const holdAmount = roundUp((base / 30) * holdingDays, roundDecimals);
     totalDeductions += holdAmount;
     withheld = holdAmount;
     deductionsApplied.push({ type: 'hold', amount: holdAmount, reason: `${holdingDays} day holding` });

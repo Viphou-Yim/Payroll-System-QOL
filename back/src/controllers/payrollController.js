@@ -587,13 +587,16 @@ async function upsertAttendance(req, res) {
     if (days_worked < 0 || days_worked > 31) return res.status(400).json({ message: 'days_worked must be between 0 and 31' });
     if (days_absent < 0) return res.status(400).json({ message: 'days_absent must be non-negative' });
 
+    const roundedDaysWorked = Math.floor(days_worked * 10) / 10;
+    const roundedDaysAbsent = Math.ceil((Number(days_absent) || 0) * 10) / 10;
+
     // ensure employee exists
     const emp = await Employee.findById(employeeId);
     if (!emp) return res.status(404).json({ message: 'Employee not found' });
 
     const rec = await Attendance.findOneAndUpdate(
       { employee: employeeId, month },
-      { days_worked, days_absent },
+      { days_worked: roundedDaysWorked, days_absent: roundedDaysAbsent },
       { upsert: true, new: true }
     );
     return res.json({ message: 'Attendance saved', record: rec });
