@@ -1182,13 +1182,78 @@
 
   // Run employee payroll
   let runPreviewTimer;
+
+  function formatMoney(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '--';
+    return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function getRunEmployeeContext() {
+    const selectEl = $('runEmployeeSelect');
+    const selectedId = selectEl ? selectEl.value : '';
+    if (selectedId) {
+      const matched = allEmployees.find((employee) => String(employee._id) === String(selectedId));
+      const selectedLabel = selectEl && selectEl.selectedOptions[0]
+        ? selectEl.selectedOptions[0].textContent
+        : (matched?.name || 'Selected employee');
+      return { employeeId: selectedId, label: selectedLabel };
+    }
+
+    const name = ($('runEmpName')?.value || '').trim().toLowerCase();
+    const phone = ($('runEmpPhone')?.value || '').trim().toLowerCase();
+    if (!name && !phone) return { employeeId: '', label: 'Select employee' };
+
+    const matches = allEmployees.filter((employee) => {
+      const employeeName = (employee.name || '').toLowerCase();
+      const employeePhone = (employee.phone || '').toLowerCase();
+      const nameMatch = !name || employeeName.includes(name);
+      const phoneMatch = !phone || employeePhone.includes(phone);
+      return nameMatch && phoneMatch;
+    });
+
+    if (matches.length === 1) {
+      const employee = matches[0];
+      const phoneLabel = employee.phone ? ` (${employee.phone})` : '';
+      return { employeeId: employee._id, label: `${employee.name || 'Employee'}${phoneLabel}` };
+    }
+    if (matches.length > 1) return { employeeId: '', label: 'Multiple matches - pick from dropdown' };
+    return { employeeId: '', label: 'No employee match' };
+  }
+
+  function formatRunResult(record, employeeLabel) {
+    const deductions = Array.isArray(record?.deductions) ? record.deductions : [];
+    const lines = [
+      'Payroll generated successfully.',
+      `Employee: ${employeeLabel || record?.employee || '--'}`,
+      `Month: ${record?.month || '--'}`,
+      `Gross salary: ${formatMoney(record?.gross_salary)}`,
+      `Total deductions: ${formatMoney(record?.total_deductions)}`,
+      `Net salary: ${formatMoney(record?.net_salary)}`,
+      `Bonuses: ${formatMoney(record?.bonuses)}`,
+      `Withheld amount: ${formatMoney(record?.withheld_amount)}`,
+      `Carryover savings: ${formatMoney(record?.carryover_savings)}`
+    ];
+
+    if (deductions.length > 0) {
+      lines.push('Applied deductions:');
+      deductions.forEach((deduction) => {
+        lines.push(`- ${deduction.type || 'deduction'}: ${formatMoney(deduction.amount)}${deduction.reason ? ` (${deduction.reason})` : ''}`);
+      });
+    } else {
+      lines.push('Applied deductions: none');
+    }
+
+    return lines.join('\n');
+  }
+
   async function updateRunPreview() {
-    const empSel = $('runEmployeeSelect');
     const month = $('runMonth').value;
     const preview = $('runPreview');
     if (!preview) return;
-    const empName = empSel && empSel.selectedOptions[0] ? empSel.selectedOptions[0].textContent : 'Select employee';
-    const employeeId = empSel ? empSel.value : '';
+    const context = getRunEmployeeContext();
+    const employeeId = context.employeeId;
+    const empName = context.label;
     preview.textContent = `Preview: ${empName} • ${month || 'Select month'} • Gross: -- • Net: -- • Deductions: --`;
     if (!employeeId || !month) return;
     clearTimeout(runPreviewTimer);
@@ -1198,10 +1263,12 @@
       const match = r.body.find(rec => rec.employee && rec.employee._id === employeeId);
       if (!match) return;
       const deductionsCount = Array.isArray(match.deductions) ? match.deductions.length : 0;
-      preview.textContent = `Preview: ${empName} • ${month} • Gross: ${match.gross_salary} • Net: ${match.net_salary} • Deductions: ${deductionsCount}`;
+      preview.textContent = `Preview: ${empName} • ${month} • Gross: ${formatMoney(match.gross_salary)} • Net: ${formatMoney(match.net_salary)} • Deductions: ${deductionsCount}`;
     }, 250);
   }
   $('runEmployeeSelect').addEventListener('change', updateRunPreview);
+  $('runEmpName')?.addEventListener('input', updateRunPreview);
+  $('runEmpPhone')?.addEventListener('input', updateRunPreview);
   $('runMonth').addEventListener('change', updateRunPreview);
   const forceToggle = $('runForce');
   const forceWarning = $('runForceWarning');
@@ -1238,10 +1305,14 @@
       const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp }) });
       const el = $('runResp');
       if (r.status === 200) {
-        el.textContent = 'Success: ' + JSON.stringify(r.body.payrollRecord || r.body, null, 2);
+        const record = r.body.payrollRecord || r.body;
+        const employeeLabel = $('runEmployeeSelect')?.selectedOptions[0]?.textContent || $('runEmpName')?.value || String(record?.employee || 'Employee');
+        el.textContent = formatRunResult(record, employeeLabel);
         showToast('Payroll generated');
+        updateRunPreview();
       } else {
-        el.textContent = 'Error: ' + JSON.stringify(r.body || r.status);
+        const message = r.body?.message || 'Unable to run payroll.';
+        el.textContent = `Could not run payroll.\nReason: ${message}`;
       }
     });
   }

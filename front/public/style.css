@@ -48,6 +48,8 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .field-help { color: var(--muted); font-size: 0.95rem; margin-top: -8px; margin-bottom: 16px; }
 .field-error { color: #b00; font-size: 0.95rem; margin-bottom: 16px; }
 .toggle { display: flex; align-items: center; gap: 10px; margin: 16px 0 8px 0; }
+.toggle input[type="checkbox"] { width: auto; max-width: none; margin: 0; }
+.run-force-toggle { margin-top: 4px; margin-bottom: 0; }
 .advanced { margin-top: 16px; }
 .advanced summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-bottom: 12px; }
 .preview-card { background: #f5f7fb; border: 1px solid #e6eaf2; padding: 10px 12px; border-radius: 6px; margin: 16px 0 24px 0; color: #333; }

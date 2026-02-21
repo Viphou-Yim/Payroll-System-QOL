@@ -389,11 +389,11 @@
             <div>
               <label for="runMonth">Month</label>
               <input id="runMonth" type="month" required />
+              <div class="toggle run-force-toggle">
+                <input type="checkbox" id="runForce" />
+                <label for="runForce">Force run (overrides existing record)</label>
+              </div>
             </div>
-          </div>
-          <div class="toggle">
-            <input type="checkbox" id="runForce" />
-            <label for="runForce">Force run (overrides existing record)</label>
           </div>
           <div id="runForceWarning" class="warning-text" style="display:none">Warning: This will regenerate payroll for the selected month.</div>
           <details class="advanced">
