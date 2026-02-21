@@ -40,6 +40,7 @@
   }
 
   let allEmployees = [];
+  let debtEmployees = [];
 
   function resolveEmployeeFromInputs(selectId, nameId, phoneId) {
     const selectedId = $(selectId)?.value;
@@ -223,13 +224,20 @@
     allEmployees.forEach(e => runSel.appendChild(createEmployeeOption(e)));
     setupEmployeeSearch('runEmployeeSelect', 'runEmpName', 'runEmpPhone');
     
-    // Populate deductions employee
+    // Populate deductions employee (include former/inactive when available)
+    let deductionEmployees = allEmployees;
+    const allEmpResp = await fetchJson('/api/payroll/employees/all', { skipSessionHandling: true });
+    if (allEmpResp.status === 200 && Array.isArray(allEmpResp.body) && allEmpResp.body.length) {
+      deductionEmployees = allEmpResp.body;
+    }
+    debtEmployees = deductionEmployees;
     dedSel.innerHTML = '';
-    allEmployees.forEach(e => {
+    deductionEmployees.forEach(e => {
       const opt = document.createElement('option');
       opt.value = e._id;
       const phone = e.phone ? ` (${e.phone})` : '';
-      opt.textContent = `${e.name}${phone}`;
+      const status = e.active === false ? ' [former]' : '';
+      opt.textContent = `${e.name}${phone}${status}`;
       dedSel.appendChild(opt);
     });
     setupEmployeeSearch('dedEmployeeSelect', 'dedEmpName', 'dedEmpPhone');
@@ -352,6 +360,7 @@
 
   let currentRecords = [];
   let currentEmployees = [];
+  let employeeDebtMap = new Map();
 
   function getEmployeeFilters() {
     return {
@@ -385,6 +394,15 @@
       return;
     }
     currentEmployees = Array.isArray(r.body) ? r.body : [];
+    const debtResp = await fetchJson('/api/payroll/debts/summary', { skipSessionHandling: true });
+    if (debtResp.status === 200) {
+      const debtRows = Array.isArray(debtResp.body?.data) ? debtResp.body.data : [];
+      employeeDebtMap = new Map(
+        debtRows.map((row) => [String(row.employeeId), Number(row.remaining_balance) || 0])
+      );
+    } else {
+      employeeDebtMap = new Map();
+    }
     renderEmployeesTable(filterEmployees(currentEmployees));
   }
 
@@ -503,7 +521,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Payroll Group', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
+    ['Name', 'Phone', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -514,7 +532,8 @@
     const tbody = document.createElement('tbody');
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
+      const remainingDebt = employeeDebtMap.get(String(employee._id)) || 0;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
       const activeCell = tr.querySelector('.employee-active-cell');
       const activeCheckbox = document.createElement('input');
       activeCheckbox.type = 'checkbox';
@@ -1352,6 +1371,108 @@
     wrap.appendChild(tbl);
     container.appendChild(wrap);
   }
+
+  async function loadDebtPayments() {
+    const selectedEmployeeId = $('dedEmployeeSelect')?.value || '';
+    const listEl = $('debtPaymentList');
+    const summaryEl = $('debtSummary');
+    if (!selectedEmployeeId) {
+      if (summaryEl) summaryEl.textContent = 'Select an employee to view debt payment history.';
+      if (listEl) listEl.textContent = 'No employee selected';
+      return;
+    }
+
+    const r = await fetchJson(`/api/payroll/debts/payments?employeeId=${encodeURIComponent(selectedEmployeeId)}`);
+    if (r.status !== 200) {
+      if (listEl) listEl.textContent = `Error: ${r.body?.message || r.status}`;
+      return;
+    }
+
+    const list = Array.isArray(r.body?.data) ? r.body.data : [];
+    const summary = r.body?.summary;
+    if (summaryEl && summary) {
+      summaryEl.textContent = `Debt ${formatMoney(summary.total_debt)} • Paid ${formatMoney(summary.total_paid)} • Remaining ${formatMoney(summary.remaining_balance)}`;
+    }
+
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!list.length) {
+      listEl.textContent = 'No debt payments recorded for selected employee.';
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    const row = document.createElement('tr');
+    ['Employee', 'Amount Paid', 'Payment Date', 'Note'].forEach((title) => {
+      const th = document.createElement('th');
+      th.textContent = title;
+      row.appendChild(th);
+    });
+    thead.appendChild(row);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    list.forEach((payment) => {
+      const tr = document.createElement('tr');
+      const empName = payment.employee?.name || payment.employee || '--';
+      const paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '--';
+      tr.innerHTML = `<td>${empName}</td><td>${formatMoney(payment.amount_paid)}</td><td>${paymentDate}</td><td>${payment.note || ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    listEl.appendChild(wrap);
+  }
+
+  const debtPaymentForm = $('debtPaymentForm');
+  if (debtPaymentForm) {
+    debtPaymentForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const employeeId = $('dedEmployeeSelect')?.value || '';
+      const amountPaid = parseFloat($('debtPayAmount')?.value || '0');
+      const paymentDate = $('debtPayDate')?.value || '';
+      const note = $('debtPayNote')?.value || '';
+      const validationEl = $('debtPayValidation');
+
+      if (!employeeId) {
+        if (validationEl) validationEl.textContent = 'Select an employee first.';
+        return;
+      }
+      if (!amountPaid || amountPaid <= 0) {
+        if (validationEl) validationEl.textContent = 'Amount paid must be greater than 0.';
+        return;
+      }
+      if (!paymentDate) {
+        if (validationEl) validationEl.textContent = 'Date of payment is required.';
+        return;
+      }
+      if (validationEl) validationEl.textContent = '';
+
+      const r = await fetchJson('/api/payroll/debts/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId,
+          amount_paid: amountPaid,
+          payment_date: paymentDate,
+          note
+        })
+      });
+
+      if (r.status === 200 || r.status === 201) {
+        showToast('Debt payment recorded');
+        debtPaymentForm.reset();
+        await loadDebtPayments();
+      } else if (validationEl) {
+        validationEl.textContent = r.body?.message || 'Failed to record debt payment.';
+      }
+    });
+  }
+
+  if ($('loadDebtPayments')) $('loadDebtPayments').addEventListener('click', loadDebtPayments);
 
   // Savings
   $('loadSavings').addEventListener('click', () => loadSavings());

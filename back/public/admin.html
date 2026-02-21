@@ -129,6 +129,17 @@
         <button id="createDed">Create Deduction</button>
         <button id="loadDeds">Load Deductions</button>
         <div id="dedList"></div>
+
+        <h3 style="margin-top:18px">Debt Tracking</h3>
+        <div style="color:#666;font-size:0.92rem;margin-bottom:8px">Supports former employees and partial payments.</div>
+        <label>Amount paid: <input id="debtPayAmount" type="number" min="0" step="0.01" /></label>
+        <label>Date of payment: <input id="debtPayDate" type="date" /></label>
+        <label>Note: <input id="debtPayNote" /></label>
+        <button id="saveDebtPayment" type="button">Record Payment</button>
+        <button id="loadDebtPayments" type="button">Load Debt History</button>
+        <div id="debtPayValidation" style="color:#b00;margin-top:8px"></div>
+        <div id="debtSummary" style="color:#666;margin-top:8px"></div>
+        <div id="debtPaymentList"></div>
       </div>
     </section>
 
@@ -169,6 +180,21 @@
       runSel.innerHTML = '';
       r.body.forEach(e => {
         const opt = document.createElement('option'); opt.value = e._id; opt.textContent = `${e.name} (${e.payroll_group})`; runSel.appendChild(opt);
+      });
+
+      const dedSel = document.getElementById('dedEmployeeSelect');
+      dedSel.innerHTML = '';
+      let dedEmployees = r.body || [];
+      const allResp = await fetchJson('/api/payroll/employees/all');
+      if (allResp.status === 200 && Array.isArray(allResp.body) && allResp.body.length) {
+        dedEmployees = allResp.body;
+      }
+      dedEmployees.forEach((e) => {
+        const opt = document.createElement('option');
+        opt.value = e._id;
+        const status = e.active === false ? ' [former]' : '';
+        opt.textContent = `${e.name}${status}`;
+        dedSel.appendChild(opt);
       });
       updateAttendancePreview();
     }
@@ -405,6 +431,83 @@
       });
       container.appendChild(ul);
     }
+
+    async function loadDebtPaymentsLegacy() {
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const listEl = document.getElementById('debtPaymentList');
+      const summaryEl = document.getElementById('debtSummary');
+      if (!employeeId) {
+        summaryEl.textContent = 'Select an employee to view debt payment history.';
+        listEl.textContent = 'No employee selected';
+        return;
+      }
+      const r = await fetchJson(`/api/payroll/debts/payments?employeeId=${encodeURIComponent(employeeId)}`);
+      if (r.status !== 200) {
+        listEl.textContent = `Error: ${r.body && r.body.message ? r.body.message : r.status}`;
+        return;
+      }
+
+      const summary = r.body && r.body.summary ? r.body.summary : null;
+      if (summary) {
+        summaryEl.textContent = `Debt ${formatMoney(summary.total_debt)} • Paid ${formatMoney(summary.total_paid)} • Remaining ${formatMoney(summary.remaining_balance)}`;
+      } else {
+        summaryEl.textContent = '';
+      }
+
+      const list = r.body && Array.isArray(r.body.data) ? r.body.data : [];
+      listEl.innerHTML = '';
+      if (!list.length) {
+        listEl.textContent = 'No debt payments recorded for selected employee.';
+        return;
+      }
+
+      const tbl = document.createElement('table');
+      const head = document.createElement('tr');
+      ['Employee', 'Amount Paid', 'Payment Date', 'Note'].forEach((title) => {
+        const th = document.createElement('th');
+        th.textContent = title;
+        head.appendChild(th);
+      });
+      tbl.appendChild(head);
+      list.forEach((payment) => {
+        const tr = document.createElement('tr');
+        const empName = payment.employee && payment.employee.name ? payment.employee.name : (payment.employee || '--');
+        const paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '--';
+        tr.innerHTML = `<td>${empName}</td><td>${formatMoney(payment.amount_paid)}</td><td>${paymentDate}</td><td>${payment.note || ''}</td>`;
+        tbl.appendChild(tr);
+      });
+      listEl.appendChild(tbl);
+    }
+
+    document.getElementById('saveDebtPayment').addEventListener('click', async () => {
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const amountPaid = parseFloat(document.getElementById('debtPayAmount').value || '0');
+      const paymentDate = document.getElementById('debtPayDate').value;
+      const note = document.getElementById('debtPayNote').value || '';
+      const validationEl = document.getElementById('debtPayValidation');
+
+      if (!employeeId) { validationEl.textContent = 'Select an employee first.'; return; }
+      if (!amountPaid || amountPaid <= 0) { validationEl.textContent = 'Amount paid must be greater than 0.'; return; }
+      if (!paymentDate) { validationEl.textContent = 'Date of payment is required.'; return; }
+      validationEl.textContent = '';
+
+      const r = await fetchJson('/api/payroll/debts/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId, amount_paid: amountPaid, payment_date: paymentDate, note })
+      });
+
+      if (r.status === 200 || r.status === 201) {
+        document.getElementById('debtPayAmount').value = '';
+        document.getElementById('debtPayDate').value = '';
+        document.getElementById('debtPayNote').value = '';
+        loadDebtPaymentsLegacy();
+      } else {
+        validationEl.textContent = (r.body && r.body.message) ? r.body.message : 'Failed to record debt payment.';
+      }
+    });
+
+    document.getElementById('loadDebtPayments').addEventListener('click', () => loadDebtPaymentsLegacy());
 
     function getCurrentMonth() {
       const now = new Date();

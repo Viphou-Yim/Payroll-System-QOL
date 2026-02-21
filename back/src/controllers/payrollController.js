@@ -13,6 +13,7 @@ const Employee = require('../models/Employee');
 const Attendance = require('../models/Attendance');
 const Deduction = require('../models/Deduction');
 const Bonuses = require('../models/Bonuses')
+const DebtPayment = require('../models/DebtPayment');
 const Saving = require('../models/Saving');
 const PayrollRecord = require('../models/PayrollRecord');
 const payrollService = require('../services/payrollService');
@@ -936,6 +937,136 @@ async function listDeductions(req, res) {
   }
 }
 
+// Record debt payment (supports former/inactive employees)
+async function createDebtPayment(req, res) {
+  try {
+    const { employeeId, amount_paid, payment_date, note = '' } = req.body || {};
+    if (!employeeId || typeof amount_paid !== 'number' || !payment_date) {
+      return res.status(400).json({ message: 'employeeId, amount_paid (number), and payment_date are required' });
+    }
+    if (amount_paid <= 0) {
+      return res.status(400).json({ message: 'amount_paid must be greater than 0' });
+    }
+
+    const employee = await Employee.findById(employeeId).select('_id name active');
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    const paymentDate = new Date(payment_date);
+    if (Number.isNaN(paymentDate.getTime())) {
+      return res.status(400).json({ message: 'payment_date must be a valid date' });
+    }
+
+    const payment = await DebtPayment.create({
+      employee: employeeId,
+      amount_paid,
+      payment_date: paymentDate,
+      note
+    });
+
+    return res.status(201).json({ message: 'Debt payment recorded', payment });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// List debt payments and debt summary (supports partial payments)
+async function listDebtPayments(req, res) {
+  try {
+    const { employeeId, page = '1', limit = '20' } = req.query;
+    const q = {};
+    if (employeeId) q.employee = employeeId;
+
+    const p = Math.max(1, parseInt(page, 10) || 1);
+    const lim = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+
+    const total = await DebtPayment.countDocuments(q);
+    const pages = Math.ceil(total / lim) || 1;
+    const data = await DebtPayment.find(q)
+      .populate('employee')
+      .skip((p - 1) * lim)
+      .limit(lim)
+      .sort({ payment_date: -1, createdAt: -1 });
+
+    let totalDebt = 0;
+    let totalPaid = 0;
+    if (employeeId) {
+      const debtRows = await Deduction.find({ employee: employeeId, type: { $in: ['debt', 'monthly_debt'] } });
+      totalDebt = (debtRows || []).reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+      totalPaid = (data || []).reduce((sum, row) => sum + (Number(row.amount_paid) || 0), 0);
+    }
+
+    return res.json({
+      total,
+      page: p,
+      limit: lim,
+      pages,
+      data,
+      summary: employeeId
+        ? {
+            employeeId,
+            total_debt: totalDebt,
+            total_paid: totalPaid,
+            remaining_balance: Math.max(0, totalDebt - totalPaid)
+          }
+        : null
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Debt summary for all employees (remaining debt = debt deductions - debt payments)
+async function getDebtSummary(req, res) {
+  try {
+    const debtRows = await Deduction.aggregate([
+      { $match: { type: { $in: ['debt', 'monthly_debt'] } } },
+      { $group: { _id: '$employee', total_debt: { $sum: '$amount' } } }
+    ]);
+
+    const paymentRows = await DebtPayment.aggregate([
+      { $group: { _id: '$employee', total_paid: { $sum: '$amount_paid' } } }
+    ]);
+
+    const debtMap = new Map();
+    (debtRows || []).forEach((row) => {
+      debtMap.set(String(row._id), {
+        employeeId: String(row._id),
+        total_debt: Number(row.total_debt) || 0,
+        total_paid: 0,
+        remaining_balance: Number(row.total_debt) || 0
+      });
+    });
+
+    (paymentRows || []).forEach((row) => {
+      const key = String(row._id);
+      const existing = debtMap.get(key) || {
+        employeeId: key,
+        total_debt: 0,
+        total_paid: 0,
+        remaining_balance: 0
+      };
+      existing.total_paid = Number(row.total_paid) || 0;
+      existing.remaining_balance = Math.max(0, (existing.total_debt || 0) - (existing.total_paid || 0));
+      debtMap.set(key, existing);
+    });
+
+    const summary = Array.from(debtMap.values());
+    return res.json({
+      data: summary,
+      totals: {
+        total_debt: summary.reduce((sum, row) => sum + (Number(row.total_debt) || 0), 0),
+        total_paid: summary.reduce((sum, row) => sum + (Number(row.total_paid) || 0), 0),
+        remaining_balance: summary.reduce((sum, row) => sum + (Number(row.remaining_balance) || 0), 0)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 // Update a deduction (amount, reason)
 async function updateDeduction(req, res) {
   try {
@@ -1018,6 +1149,9 @@ module.exports = {
   listAttendance,
   createDeduction,
   listDeductions,
+  createDebtPayment,
+  listDebtPayments,
+  getDebtSummary,
   updateDeduction,
   deleteDeduction,
   createBonus,

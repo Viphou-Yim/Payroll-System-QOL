@@ -546,6 +546,31 @@
           </div>
         </form>
         <div id="dedList"></div>
+        <div class="section" style="margin-top:24px;">
+          <h3 style="margin-top:0">Debt Tracking</h3>
+          <div class="field-help">Supports former employees and partial payments.</div>
+          <form id="debtPaymentForm" style="max-width:520px">
+            <div class="form-grid two-col">
+              <div>
+                <label for="debtPayAmount">Amount paid</label>
+                <input id="debtPayAmount" type="number" min="0" step="0.01" required />
+              </div>
+              <div>
+                <label for="debtPayDate">Date of payment</label>
+                <input id="debtPayDate" type="date" required />
+              </div>
+            </div>
+            <label for="debtPayNote">Note</label>
+            <input id="debtPayNote" placeholder="Optional" />
+            <div id="debtPayValidation" class="field-error"></div>
+            <div class="form-actions">
+              <button id="saveDebtPayment" type="submit">Record Payment</button>
+              <button id="loadDebtPayments" type="button" class="secondary">Load Debt History</button>
+            </div>
+          </form>
+          <div id="debtSummary" class="field-help"></div>
+          <div id="debtPaymentList"></div>
+        </div>
       </div>
     </section>
 

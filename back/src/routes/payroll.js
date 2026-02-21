@@ -53,6 +53,9 @@ router.post('/deductions', controller.createDeduction);
 router.get('/deductions', controller.listDeductions);
 router.patch('/deductions/:id', controller.updateDeduction);
 router.delete('/deductions/:id', controller.deleteDeduction);
+router.post('/debts/payments', sessionAuth.requireAdmin, controller.createDebtPayment);
+router.get('/debts/payments', sessionAuth.requireAdmin, controller.listDebtPayments);
+router.get('/debts/summary', sessionAuth.requireAdmin, controller.getDebtSummary);
 
 // Savings
 router.get('/savings', controller.getSavings);
