@@ -877,13 +877,14 @@ async function createDeduction(req, res) {
 // List deductions (filter by month and/or type)
 async function listDeductions(req, res) {
   try {
-    const { month, type, page = '1', limit = '20', employeeName } = req.query;
+    const { month, type, page = '1', limit = '20', employeeName, employeeId } = req.query;
     const q = {};
     if (month) q.month = month;
     if (type) q.type = type;
+    if (employeeId) q.employee = employeeId;
 
     // If employeeName filter is provided, find employee ids matching the name
-    if (employeeName) {
+    if (!employeeId && employeeName) {
       const employees = await Employee.find({ name: new RegExp(employeeName, 'i') }, '_id');
       const ids = employees.map(e => e._id);
       q.employee = { $in: ids };

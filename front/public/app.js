@@ -1288,12 +1288,25 @@
   }
   $('loadDeds').addEventListener('click', () => loadDeductions());
   async function loadDeductions() {
-    const r = await fetchJson('/api/payroll/deductions');
+    const selectedEmployeeId = $('dedEmployeeSelect')?.value || '';
+    const url = selectedEmployeeId
+      ? `/api/payroll/deductions?employeeId=${encodeURIComponent(selectedEmployeeId)}`
+      : '/api/payroll/deductions';
+    const r = await fetchJson(url);
     const container = $('dedList');
+    const validation = $('dedValidation');
     if (r.status !== 200) { container.textContent = `Error: ${r.body.message || r.status}`; return; }
     container.innerHTML = '';
     const list = Array.isArray(r.body) ? r.body : (r.body && Array.isArray(r.body.data) ? r.body.data : []);
-    if (!Array.isArray(list) || list.length === 0) { container.textContent = 'No deductions'; return; }
+    if (validation) {
+      validation.textContent = selectedEmployeeId
+        ? 'Showing deduction history for selected employee.'
+        : 'Showing deduction history for all employees.';
+    }
+    if (!Array.isArray(list) || list.length === 0) {
+      container.textContent = selectedEmployeeId ? 'No deductions for selected employee' : 'No deductions';
+      return;
+    }
     const wrap = document.createElement('div');
     wrap.className = 'table-wrap';
     const tbl = document.createElement('table');

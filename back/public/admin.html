@@ -372,13 +372,21 @@
     document.getElementById('loadDeds').addEventListener('click', () => loadDeductions());
 
     async function loadDeductions() {
-      const r = await fetchJson('/api/payroll/deductions');
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const url = employeeId
+        ? `/api/payroll/deductions?employeeId=${encodeURIComponent(employeeId)}`
+        : '/api/payroll/deductions';
+      const r = await fetchJson(url);
       const container = document.getElementById('dedList');
       if (r.status !== 200) { container.textContent = `Error: ${r.body.message || r.status}`; return; }
       container.innerHTML = '';
-      if (!Array.isArray(r.body) || r.body.length === 0) { container.textContent = 'No deductions'; return; }
+      const list = Array.isArray(r.body) ? r.body : (r.body && Array.isArray(r.body.data) ? r.body.data : []);
+      if (!Array.isArray(list) || list.length === 0) {
+        container.textContent = employeeId ? 'No deductions for selected employee' : 'No deductions';
+        return;
+      }
       const ul = document.createElement('ul');
-      r.body.forEach(d => {
+      list.forEach(d => {
         const li = document.createElement('li');
         const emp = d.employee && d.employee.name ? d.employee.name : (d.employee || '');
         li.textContent = `${emp} - ${d.type} - ${d.amount} - ${d.month} - ${d.reason || ''}`;
