@@ -391,14 +391,30 @@
               <input id="runMonth" type="month" required />
               <div class="toggle run-force-toggle">
                 <input type="checkbox" id="runForce" />
-                <label for="runForce">Force run (overrides existing record)</label>
+                <label for="runForce" class="inline-info-label">
+                  <span>Force run (overrides existing record)</span>
+                  <span
+                    class="info-tooltip"
+                    tabindex="0"
+                    aria-label="Force run deletes existing payroll for the selected employee and month, then recalculates it. Use this only when you intentionally want to overwrite a previous result."
+                    data-tooltip="Force run will overwrite any existing payroll record for this employee and month, then recalculate it from current data. Use with care."
+                  >ⓘ</span>
+                </label>
               </div>
             </div>
           </div>
           <div id="runForceWarning" class="warning-text" style="display:none">Warning: This will regenerate payroll for the selected month.</div>
           <details class="advanced">
             <summary>Advanced options</summary>
-            <label for="runIdemp">Idempotency key (optional)</label>
+            <label for="runIdemp" class="inline-info-label">
+              <span>Idempotency key (optional)</span>
+              <span
+                class="info-tooltip"
+                tabindex="0"
+                aria-label="An idempotency key prevents accidental duplicate processing. Reuse the same key for retries of the same run. Good formats include employeeId-month, or employeeId-phone-month, plus UUID/request IDs from your system."
+                data-tooltip="Idempotency key helps prevent duplicate payroll runs. If the same request is sent again with the same key, the server treats it as a duplicate instead of processing twice.\n\nRecommended formats:\n- employeeId-month (example: emp_6990-2026-02)\n- employeeId-phone-month (example: emp_6990-09090909-2026-02)\n\nYou can also use your own request/transaction ID or a generated UUID."
+              >ⓘ</span>
+            </label>
             <input id="runIdemp" placeholder="optional key" />
           </details>
           <div id="runPreview" class="preview-card">Preview: select employee and month.</div>
