@@ -133,6 +133,10 @@
     <section id="sec-savings" class="page" data-route="savings" style="display:none">
       <div class="section">
         <h2>Savings</h2>
+        <label>Payout month: <input id="savPayoutMonth" type="month" /></label>
+        <button id="payoutKny" type="button">One-click payout: KNY</button>
+        <button id="payoutPchum" type="button">One-click payout: Pchum Ben</button>
+        <div id="savPayoutStatus" style="margin-top:8px;color:#666"></div>
         <button id="loadSavings">Load Savings</button>
         <div id="savingsList"></div>
       </div>
@@ -526,6 +530,39 @@
 
     document.getElementById('loadDashboard').addEventListener('click', () => loadDashboard());
     document.getElementById('dashMonth').addEventListener('change', () => loadDashboard());
+
+    async function payoutSavingsForFestivalLegacy(festival) {
+      const monthEl = document.getElementById('savPayoutMonth');
+      const statusEl = document.getElementById('savPayoutStatus');
+      const month = monthEl && monthEl.value ? monthEl.value : getCurrentMonth();
+      if (monthEl && !monthEl.value) monthEl.value = month;
+      const festivalLabel = festival === 'khmer_new_year' ? 'KNY' : 'Pchum Ben';
+
+      const ok = confirm(`Run one-click savings payout for ${festivalLabel} (${month})?`);
+      if (!ok) return;
+
+      statusEl.textContent = `Running ${festivalLabel} payout...`;
+      const r = await fetchJson('/api/payroll/savings/payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ festival, month })
+      });
+
+      if (r.status === 200) {
+        const employeesPaid = Number(r.body && r.body.employees_paid ? r.body.employees_paid : 0);
+        const totalPayout = Number(r.body && r.body.total_payout ? r.body.total_payout : 0);
+        statusEl.textContent = `${festivalLabel} payout complete: ${employeesPaid} employee(s), total ${formatMoney(totalPayout)}.`;
+        loadSavings();
+      } else {
+        statusEl.textContent = (r.body && r.body.message) ? r.body.message : `Failed to run ${festivalLabel} payout.`;
+      }
+    }
+
+    document.getElementById('payoutKny').addEventListener('click', () => payoutSavingsForFestivalLegacy('khmer_new_year'));
+    document.getElementById('payoutPchum').addEventListener('click', () => payoutSavingsForFestivalLegacy('pchum_ben'));
+    if (document.getElementById('savPayoutMonth') && !document.getElementById('savPayoutMonth').value) {
+      document.getElementById('savPayoutMonth').value = getCurrentMonth();
+    }
 
     // Savings UI
     document.getElementById('loadSavings').addEventListener('click', () => loadSavings());

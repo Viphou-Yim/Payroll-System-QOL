@@ -540,7 +540,18 @@
         <h2>Savings</h2>
         <div class="section-desc">View and manage employee savings contributions.</div>
         <div id="savingsSummary" class="summary-cards"></div>
-        <button id="loadSavings">Load Savings</button>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="savPayoutMonth">Payout month</label>
+            <input id="savPayoutMonth" type="month" />
+          </div>
+          <div class="form-actions" style="align-items:flex-end;margin:0;">
+            <button id="payoutKny" type="button" class="secondary">One-click payout: KNY</button>
+            <button id="payoutPchum" type="button" class="secondary">One-click payout: Pchum Ben</button>
+          </div>
+        </div>
+        <div id="savPayoutStatus" class="field-help"></div>
+        <button id="loadSavings" type="button">Load Savings</button>
         <div id="savingsList"></div>
       </div>
     </section>

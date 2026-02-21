@@ -1355,6 +1355,39 @@
 
   // Savings
   $('loadSavings').addEventListener('click', () => loadSavings());
+
+  async function payoutSavingsForFestival(festival) {
+    const monthInput = $('savPayoutMonth');
+    const statusEl = $('savPayoutStatus');
+    const month = (monthInput && monthInput.value) ? monthInput.value : getCurrentMonth();
+    if (monthInput && !monthInput.value) monthInput.value = month;
+
+    const festivalLabel = festival === 'khmer_new_year' ? 'KNY' : 'Pchum Ben';
+    const ok = window.confirm(`Run one-click savings payout for ${festivalLabel} (${month})?`);
+    if (!ok) return;
+
+    if (statusEl) statusEl.textContent = `Running ${festivalLabel} payout...`;
+    const r = await fetchJson('/api/payroll/savings/payout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ festival, month })
+    });
+
+    if (r.status === 200) {
+      const employeesPaid = Number(r.body?.employees_paid || 0);
+      const totalPayout = Number(r.body?.total_payout || 0);
+      if (statusEl) statusEl.textContent = `${festivalLabel} payout complete: ${employeesPaid} employee(s), total ${formatMoney(totalPayout)}.`;
+      showToast(`${festivalLabel} payout completed`);
+      await loadSavings();
+    } else {
+      if (statusEl) statusEl.textContent = r.body?.message || `Failed to run ${festivalLabel} payout.`;
+    }
+  }
+
+  if ($('payoutKny')) $('payoutKny').addEventListener('click', () => payoutSavingsForFestival('khmer_new_year'));
+  if ($('payoutPchum')) $('payoutPchum').addEventListener('click', () => payoutSavingsForFestival('pchum_ben'));
+  if ($('savPayoutMonth') && !$('savPayoutMonth').value) $('savPayoutMonth').value = getCurrentMonth();
+
   async function loadSavings() {
     const r = await fetchJson('/api/payroll/savings');
     const container = $('savingsList');
