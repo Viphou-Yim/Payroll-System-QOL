@@ -54,6 +54,22 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .advanced summary { cursor: pointer; color: var(--accent); font-weight: 600; margin-bottom: 12px; }
 .preview-card { background: #f5f7fb; border: 1px solid #e6eaf2; padding: 10px 12px; border-radius: 6px; margin: 16px 0 24px 0; color: #333; }
 .response-block { background: #f9f9f9; border: 1px solid #eee; padding: 10px; border-radius: 6px; min-height: 48px; margin-top: 16px; }
+.run-result { font-family: Arial, sans-serif; line-height: 1.35; }
+.run-result .run-title { font-weight: 700; margin-bottom: 6px; }
+.run-result .run-row { margin: 2px 0; }
+.run-label { font-weight: 600; color: #4a5568; }
+.run-employee { font-weight: 700; }
+.run-deductions { margin: 4px 0 0 18px; padding: 0; }
+.run-deductions li { margin: 2px 0; }
+.run-ded-type { font-weight: 600; }
+.run-note { color: #666; }
+.run-amount { font-weight: 700; }
+.amount-profit { color: #1e7c35; }
+.amount-revenue { color: #0b66c3; }
+.amount-hold { color: #b96a00; }
+.amount-owe { color: #b91c1c; }
+.amount-neutral { color: #222; }
+.run-result.error .run-title { color: #b91c1c; }
 .status-badge { background: #f0f0f0; color: #555; border-radius: 999px; padding: 6px 12px; font-size: 0.9rem; font-weight: 600; }
 .status-badge.running { background: #e6f6eb; color: #1e7c35; }
 .status-badge.stopped { background: #fdecec; color: #b91c1c; }

@@ -1189,6 +1189,28 @@
     return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function amountHtml(value, kind) {
+    const num = Number(value);
+    const formatted = formatMoney(value);
+    let cls = 'amount-neutral';
+
+    if (kind === 'revenue') cls = 'amount-revenue';
+    if (kind === 'profit') cls = num > 0 ? 'amount-profit' : 'amount-owe';
+    if (kind === 'hold') cls = num > 0 ? 'amount-hold' : 'amount-neutral';
+    if (kind === 'owe') cls = num > 0 ? 'amount-owe' : 'amount-neutral';
+
+    return `<span class="run-amount ${cls}">${escapeHtml(formatted)}</span>`;
+  }
+
   function getRunEmployeeContext() {
     const selectEl = $('runEmployeeSelect');
     const selectedId = selectEl ? selectEl.value : '';
@@ -1223,28 +1245,38 @@
 
   function formatRunResult(record, employeeLabel) {
     const deductions = Array.isArray(record?.deductions) ? record.deductions : [];
-    const lines = [
-      'Payroll generated successfully.',
-      `Employee: ${employeeLabel || record?.employee || '--'}`,
-      `Month: ${record?.month || '--'}`,
-      `Gross salary: ${formatMoney(record?.gross_salary)}`,
-      `Total deductions: ${formatMoney(record?.total_deductions)}`,
-      `Net salary: ${formatMoney(record?.net_salary)}`,
-      `Bonuses: ${formatMoney(record?.bonuses)}`,
-      `Withheld amount: ${formatMoney(record?.withheld_amount)}`,
-      `Carryover savings: ${formatMoney(record?.carryover_savings)}`
-    ];
+    const employeeText = employeeLabel || record?.employee || '--';
+    const monthText = record?.month || '--';
 
+    let deductionsHtml = '<div class="run-row"><span class="run-label">Applied deductions:</span> none</div>';
     if (deductions.length > 0) {
-      lines.push('Applied deductions:');
-      deductions.forEach((deduction) => {
-        lines.push(`- ${deduction.type || 'deduction'}: ${formatMoney(deduction.amount)}${deduction.reason ? ` (${deduction.reason})` : ''}`);
-      });
-    } else {
-      lines.push('Applied deductions: none');
+      deductionsHtml = `
+        <div class="run-row"><span class="run-label">Applied deductions:</span></div>
+        <ul class="run-deductions">
+          ${deductions.map((deduction) => {
+            const amount = amountHtml(deduction.amount, 'owe');
+            const dedType = escapeHtml(deduction.type || 'deduction');
+            const reason = deduction.reason ? ` <span class="run-note">(${escapeHtml(deduction.reason)})</span>` : '';
+            return `<li><span class="run-ded-type">${dedType}</span>: ${amount}${reason}</li>`;
+          }).join('')}
+        </ul>
+      `;
     }
 
-    return lines.join('\n');
+    return `
+      <div class="run-result success">
+        <div class="run-title">Payroll generated successfully.</div>
+        <div class="run-row"><span class="run-label">Employee:</span> <strong class="run-employee">${escapeHtml(employeeText)}</strong></div>
+        <div class="run-row"><span class="run-label">Month:</span> ${escapeHtml(monthText)}</div>
+        <div class="run-row"><span class="run-label">Gross salary:</span> ${amountHtml(record?.gross_salary, 'revenue')}</div>
+        <div class="run-row"><span class="run-label">Total deductions:</span> ${amountHtml(record?.total_deductions, 'owe')}</div>
+        <div class="run-row"><span class="run-label">Net salary:</span> ${amountHtml(record?.net_salary, 'profit')}</div>
+        <div class="run-row"><span class="run-label">Bonuses:</span> ${amountHtml(record?.bonuses, 'profit')}</div>
+        <div class="run-row"><span class="run-label">Withheld amount:</span> ${amountHtml(record?.withheld_amount, 'hold')}</div>
+        <div class="run-row"><span class="run-label">Carryover savings:</span> ${amountHtml(record?.carryover_savings, 'hold')}</div>
+        ${deductionsHtml}
+      </div>
+    `;
   }
 
   async function updateRunPreview() {
@@ -1307,12 +1339,17 @@
       if (r.status === 200) {
         const record = r.body.payrollRecord || r.body;
         const employeeLabel = $('runEmployeeSelect')?.selectedOptions[0]?.textContent || $('runEmpName')?.value || String(record?.employee || 'Employee');
-        el.textContent = formatRunResult(record, employeeLabel);
+        el.innerHTML = formatRunResult(record, employeeLabel);
         showToast('Payroll generated');
         updateRunPreview();
       } else {
         const message = r.body?.message || 'Unable to run payroll.';
-        el.textContent = `Could not run payroll.\nReason: ${message}`;
+        el.innerHTML = `
+          <div class="run-result error">
+            <div class="run-title">Could not run payroll.</div>
+            <div class="run-row"><span class="run-label">Reason:</span> ${escapeHtml(message)}</div>
+          </div>
+        `;
       }
     });
   }
