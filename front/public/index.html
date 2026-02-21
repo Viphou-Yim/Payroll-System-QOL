@@ -411,11 +411,12 @@
               <span
                 class="info-tooltip"
                 tabindex="0"
-                aria-label="An idempotency key prevents accidental duplicate processing. Reuse the same key for retries of the same run. Good formats include employeeId-month, or employeeId-phone-month, plus UUID/request IDs from your system."
-                data-tooltip="Idempotency key helps prevent duplicate payroll runs. If the same request is sent again with the same key, the server treats it as a duplicate instead of processing twice.\n\nRecommended formats:\n- employeeId-month (example: emp_6990-2026-02)\n- employeeId-phone-month (example: emp_6990-09090909-2026-02)\n\nYou can also use your own request/transaction ID or a generated UUID."
+                aria-label="Prevents duplicate payroll runs. Reuse the same key when retrying the same request."
+                data-tooltip="Prevents duplicate payroll runs. Reuse the same key for retries of the same request."
               >ⓘ</span>
             </label>
             <input id="runIdemp" placeholder="optional key" />
+            <div class="field-help">Format examples: <strong>employeeId-month</strong> (emp_6990-2026-02), <strong>employeeId-phone-month</strong> (emp_6990-09090909-2026-02), or a UUID/request ID.</div>
           </details>
           <div id="runPreview" class="preview-card">Preview: select employee and month.</div>
           <div id="runValidation" class="field-error"></div>
