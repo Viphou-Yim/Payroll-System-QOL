@@ -23,7 +23,9 @@ const attendanceValidator = validate([
 
 const generateMonthValidator = validate([
   body('month').exists().withMessage('month is required').bail().custom(isValidMonth).withMessage('month must be YYYY-MM'),
-  body('payroll_group').exists().withMessage('payroll_group is required')
+  body('payroll_group').exists().withMessage('payroll_group is required'),
+  body('zero_absence_bonus_enabled').optional().isBoolean().withMessage('zero_absence_bonus_enabled must be boolean'),
+  body('zero_absence_bonus_amount').optional().isFloat({ min: 0 }).withMessage('zero_absence_bonus_amount must be non-negative number')
 ]);
 
 const generateEmployeeValidator = validate([
@@ -31,7 +33,9 @@ const generateEmployeeValidator = validate([
   body('month').exists().withMessage('month is required').bail().custom(isValidMonth).withMessage('month must be YYYY-MM'),
   // optional flags
   body('force').optional().isBoolean().withMessage('force must be boolean'),
-  body('idempotencyKey').optional().isString().withMessage('idempotencyKey must be string')
+  body('idempotencyKey').optional().isString().withMessage('idempotencyKey must be string'),
+  body('zero_absence_bonus_enabled').optional().isBoolean().withMessage('zero_absence_bonus_enabled must be boolean'),
+  body('zero_absence_bonus_amount').optional().isFloat({ min: 0 }).withMessage('zero_absence_bonus_amount must be non-negative number')
 ]);
 
 const scheduleStartValidator = validate([

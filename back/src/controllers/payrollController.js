@@ -22,6 +22,8 @@ const schedulerService = require('../services/schedulerService');
 const ROUND_DECIMALS = parseInt(process.env.ROUND_DECIMALS || '2', 10);
 const CUT_GROUP_20_DEDUCTION_AMOUNT = parseFloat(process.env.CUT_GROUP_20_DEDUCTION_AMOUNT || '20');
 const CUT_GROUP_10DAY_HOLDING_DAYS = parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
+const ZERO_ABSENCE_BONUS_DEFAULT_ENABLED = String(process.env.ZERO_ABSENCE_BONUS_ENABLED || 'false').toLowerCase() === 'true';
+const ZERO_ABSENCE_BONUS_DEFAULT_AMOUNT = parseFloat(process.env.ZERO_ABSENCE_BONUS_AMOUNT || '0');
 
 
 // Main function: displays payroll for a month for a specific payroll group
@@ -42,6 +44,31 @@ function toYearMonth(value) {
 
 function getCurrentYearMonth() {
   return new Date().toISOString().slice(0, 7);
+}
+
+function getZeroAbsenceBonusOptions(payload = {}) {
+  const enabled = payload.zero_absence_bonus_enabled === undefined
+    ? ZERO_ABSENCE_BONUS_DEFAULT_ENABLED
+    : !!payload.zero_absence_bonus_enabled;
+  const amount = payload.zero_absence_bonus_amount === undefined
+    ? ZERO_ABSENCE_BONUS_DEFAULT_AMOUNT
+    : Number(payload.zero_absence_bonus_amount);
+  return {
+    enabled,
+    amount: Number.isFinite(amount) ? Math.max(0, amount) : 0
+  };
+}
+
+function applyZeroAbsenceBonus({ attendance, bonuses, options }) {
+  const list = Array.isArray(bonuses) ? [...bonuses] : [];
+  const daysAbsent = Number(attendance?.days_absent);
+  if (!options?.enabled) return list;
+  if (!Number.isFinite(options.amount) || options.amount <= 0) return list;
+  if (!attendance) return list;
+  if (!Number.isFinite(daysAbsent) || daysAbsent !== 0) return list;
+
+  list.push({ amount: options.amount, reason: 'Zero absence bonus' });
+  return list;
 }
 
 function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
@@ -65,6 +92,7 @@ function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
 async function generatePayrollForMonth(req, res) {
   try {
     const { month, payroll_group, force = false } = req.body;
+    const zeroAbsenceBonusOptions = getZeroAbsenceBonusOptions(req.body || {});
     const idempotencyKey = (req.headers['idempotency-key'] || req.headers['Idempotency-Key'] || '').toString();
 
     if (!month || !payroll_group) return res.status(400).json({ message: 'month and payroll_group are required (month as YYYY-MM).' });
@@ -104,7 +132,8 @@ async function generatePayrollForMonth(req, res) {
 
       const attendance = await Attendance.findOne({ employee: emp._id, month });
       const daysWorked = attendance ? attendance.days_worked : 0;
-      const bonuses = await Bonuses.find({ employee: emp._id, month });
+      const storedBonuses = await Bonuses.find({ employee: emp._id, month });
+      const bonuses = applyZeroAbsenceBonus({ attendance, bonuses: storedBonuses, options: zeroAbsenceBonusOptions });
 
       const staticDeds = await Deduction.find({ employee: emp._id, month });
       const saving = await Saving.findOne({ employee: emp._id });
@@ -180,6 +209,7 @@ async function generatePayrollForMonth(req, res) {
 async function generatePayrollForEmployee(req, res) {
   try {
     const { employeeId, month, force = false, idempotencyKey = '' } = req.body;
+    const zeroAbsenceBonusOptions = getZeroAbsenceBonusOptions(req.body || {});
     const headerKey = (req.headers['idempotency-key'] || req.headers['Idempotency-Key'] || '').toString();
     const keyToUse = idempotencyKey || headerKey;
 
@@ -214,9 +244,9 @@ async function generatePayrollForEmployee(req, res) {
     // Use the employee's payroll_group to decide whether cut rules apply (default to 'cut')
     const empPayrollGroup = emp.payroll_group || 'cut';
     const applyCutsForEmployee = empPayrollGroup !== 'no-cut';
-    const bonuses = await Bonuses.find({ employee: emp._id, month });
-
     const attendance = await Attendance.findOne({ employee: emp._id, month });
+    const storedBonuses = await Bonuses.find({ employee: emp._id, month });
+    const bonuses = applyZeroAbsenceBonus({ attendance, bonuses: storedBonuses, options: zeroAbsenceBonusOptions });
     const daysWorked = attendance ? attendance.days_worked : 0;
     const staticDeds = await Deduction.find({ employee: emp._id, month });
     const saving = await Saving.findOne({ employee: emp._id });

@@ -451,6 +451,20 @@
           <div id="runForceWarning" class="warning-text" style="display:none">Warning: This will regenerate payroll for the selected month.</div>
           <details class="advanced">
             <summary>Advanced options</summary>
+            <div class="toggle">
+              <input type="checkbox" id="runZeroAbsenceBonusEnabled" />
+              <label for="runZeroAbsenceBonusEnabled" class="inline-info-label">
+                <span>Zero-absence bonus (ON/OFF)</span>
+                <span
+                  class="info-tooltip"
+                  tabindex="0"
+                  aria-label="When enabled, payroll adds an optional bonus if the employee has zero absent days for the selected month."
+                  data-tooltip="Adds a bonus when attendance for the selected month has zero absent days."
+                >ⓘ</span>
+              </label>
+            </div>
+            <label for="runZeroAbsenceBonusAmount">Zero-absence bonus amount</label>
+            <input id="runZeroAbsenceBonusAmount" type="number" min="0" step="0.01" value="0" disabled />
             <label for="runIdemp" class="inline-info-label">
               <span>Idempotency key (optional)</span>
               <span

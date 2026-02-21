@@ -1577,9 +1577,20 @@
   $('runMonth').addEventListener('change', updateRunPreview);
   const forceToggle = $('runForce');
   const forceWarning = $('runForceWarning');
+  const zeroAbsenceBonusToggle = $('runZeroAbsenceBonusEnabled');
+  const zeroAbsenceBonusAmountInput = $('runZeroAbsenceBonusAmount');
   if (forceToggle && forceWarning) {
     forceToggle.addEventListener('change', () => {
       forceWarning.style.display = forceToggle.checked ? 'block' : 'none';
+    });
+  }
+  if (zeroAbsenceBonusToggle && zeroAbsenceBonusAmountInput) {
+    zeroAbsenceBonusToggle.addEventListener('change', () => {
+      zeroAbsenceBonusAmountInput.disabled = !zeroAbsenceBonusToggle.checked;
+      if (!zeroAbsenceBonusToggle.checked) zeroAbsenceBonusAmountInput.value = '0';
+      if (zeroAbsenceBonusToggle.checked && (!zeroAbsenceBonusAmountInput.value || Number(zeroAbsenceBonusAmountInput.value) <= 0)) {
+        zeroAbsenceBonusAmountInput.value = '10';
+      }
     });
   }
   const runForm = document.getElementById('runPayrollForm');
@@ -1591,6 +1602,8 @@
       const month = $('runMonth').value;
       const idemp = $('runIdemp').value.trim();
       const force = $('runForce').checked;
+      const zero_absence_bonus_enabled = !!$('runZeroAbsenceBonusEnabled')?.checked;
+      const zero_absence_bonus_amount = parseFloat($('runZeroAbsenceBonusAmount')?.value || '0') || 0;
       const validation = $('runValidation');
       if (force) {
         const ok = window.confirm('Force run will overwrite existing payroll for this month. Continue?');
@@ -1604,10 +1617,18 @@
         validation.textContent = 'Month is required.';
         return;
       }
+      if (zero_absence_bonus_enabled && zero_absence_bonus_amount <= 0) {
+        validation.textContent = 'Enter a bonus amount greater than 0 when zero-absence bonus is enabled.';
+        return;
+      }
       validation.textContent = '';
       const headers = { 'Content-Type': 'application/json' };
       if (idemp) headers['Idempotency-Key'] = idemp;
-      const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp }) });
+      const r = await fetchJson('/api/payroll/generate/employee', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp, zero_absence_bonus_enabled, zero_absence_bonus_amount })
+      });
       const el = $('runResp');
       if (r.status === 200) {
         const record = r.body.payrollRecord || r.body;

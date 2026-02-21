@@ -98,6 +98,8 @@
         <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
         <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
         <label><input type="checkbox" id="runForce"/> Force</label>
+        <label><input type="checkbox" id="runZeroAbsenceBonusEnabled"/> Zero-absence bonus (ON/OFF)</label>
+        <label>Zero-absence bonus amount: <input id="runZeroAbsenceBonusAmount" type="number" min="0" step="0.01" value="0" disabled/></label>
         <div id="runPreviewLegacy" style="margin-top:10px;background:#f9f9f9;border:1px solid #eee;padding:8px;border-radius:6px;">Preview: select employee and month.</div>
         <button id="runPayrollEmp">Run Payroll</button>
         <div id="runResp"></div>
@@ -595,6 +597,17 @@
     // init login and employee data
     loadEmployees();
     refreshMe();
+    const runZeroAbsenceToggle = document.getElementById('runZeroAbsenceBonusEnabled');
+    const runZeroAbsenceAmount = document.getElementById('runZeroAbsenceBonusAmount');
+    if (runZeroAbsenceToggle && runZeroAbsenceAmount) {
+      runZeroAbsenceToggle.addEventListener('change', () => {
+        runZeroAbsenceAmount.disabled = !runZeroAbsenceToggle.checked;
+        if (!runZeroAbsenceToggle.checked) runZeroAbsenceAmount.value = '0';
+        if (runZeroAbsenceToggle.checked && (!runZeroAbsenceAmount.value || Number(runZeroAbsenceAmount.value) <= 0)) {
+          runZeroAbsenceAmount.value = '10';
+        }
+      });
+    }
     document.getElementById('runEmployeeSelect').addEventListener('change', updateLegacyRunPreview);
     document.getElementById('runMonth').addEventListener('input', updateLegacyRunPreview);
     document.getElementById('runMonth').addEventListener('change', updateLegacyRunPreview);
@@ -603,11 +616,17 @@
       const month = document.getElementById('runMonth').value;
       const idemp = document.getElementById('runIdemp').value.trim();
       const force = document.getElementById('runForce').checked;
+      const zero_absence_bonus_enabled = !!document.getElementById('runZeroAbsenceBonusEnabled').checked;
+      const zero_absence_bonus_amount = parseFloat(document.getElementById('runZeroAbsenceBonusAmount').value) || 0;
+      if (zero_absence_bonus_enabled && zero_absence_bonus_amount <= 0) {
+        document.getElementById('runResp').textContent = 'Error: Enter a bonus amount greater than 0 when zero-absence bonus is enabled.';
+        return;
+      }
       const apiKey = document.getElementById('apiKey').value.trim();
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['x-api-key'] = apiKey;
       if (idemp) headers['Idempotency-Key'] = idemp;
-      const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp }) });
+      const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp, zero_absence_bonus_enabled, zero_absence_bonus_amount }) });
       const el = document.getElementById('runResp');
       if (r.status === 200) {
         const record = r.body.payrollRecord || r.body;
