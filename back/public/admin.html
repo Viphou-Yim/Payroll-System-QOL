@@ -69,6 +69,11 @@
         <label>Month (YYYY-MM): <input id="attMonth" placeholder="2026-02"/></label>
         <label>Days worked: <input id="attDays" type="number" value="0"/></label>
         <label>Days absent: <input id="attAbsent" type="number" value="0"/></label>
+        <div style="font-size:0.92rem;color:#666;margin-top:-4px;">Preferred: enter absent days for the full month.</div>
+        <button id="attAutoFillDays" type="button">Auto-fill Worked Days</button>
+        <label>Extra deduction: <input id="attExtraDeduction" type="number" min="0" step="0.01" value="0"/></label>
+        <label>Penalty: <input id="attPenalty" type="number" min="0" step="0.01" value="0"/></label>
+        <div id="attPreview" style="margin-top:10px;background:#f9f9f9;border:1px solid #eee;padding:8px;border-radius:6px;">Preview: select employee and month.</div>
         <button id="saveAtt">Save Attendance</button>
         <div id="attMsg"></div>
       </div>
@@ -158,15 +163,65 @@
       r.body.forEach(e => {
         const opt = document.createElement('option'); opt.value = e._id; opt.textContent = `${e.name} (${e.payroll_group})`; runSel.appendChild(opt);
       });
+      updateAttendancePreview();
     }
+
+    function getAttendanceMonthDays(month) {
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) return 30;
+      const [y, m] = month.split('-');
+      return new Date(Number(y), Number(m), 0).getDate();
+    }
+
+    function updateAttendancePreview() {
+      const preview = document.getElementById('attPreview');
+      if (!preview) return;
+      const month = document.getElementById('attMonth').value;
+      const daysWorked = parseFloat(document.getElementById('attDays').value) || 0;
+      const daysAbsent = parseFloat(document.getElementById('attAbsent').value) || 0;
+      const extraDeduction = parseFloat(document.getElementById('attExtraDeduction').value) || 0;
+      const penalty = parseFloat(document.getElementById('attPenalty').value) || 0;
+      const selected = document.getElementById('employeeSelect').selectedOptions[0];
+      const label = selected ? selected.textContent : 'No employee selected';
+
+      if (!month) {
+        preview.textContent = `Preview: ${label} • select month to estimate attendance impact.`;
+        return;
+      }
+
+      const monthDays = getAttendanceMonthDays(month);
+      const suggestedWorked = Math.max(0, monthDays - daysAbsent);
+      preview.textContent = `Preview: ${label} • Month days ${monthDays} • Suggested worked ${suggestedWorked} • Entered worked ${daysWorked} • Extra deductions ${formatMoney(extraDeduction + penalty)}`;
+    }
+
+    ['employeeSelect','attMonth','attDays','attAbsent','attExtraDeduction','attPenalty'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateAttendancePreview);
+      if (el) el.addEventListener('change', updateAttendancePreview);
+    });
+
+    document.getElementById('attAutoFillDays').addEventListener('click', () => {
+      const month = document.getElementById('attMonth').value;
+      if (!month) {
+        document.getElementById('attMsg').textContent = 'Select month before auto-fill.';
+        return;
+      }
+      const monthDays = getAttendanceMonthDays(month);
+      const daysAbsent = parseInt(document.getElementById('attAbsent').value, 10) || 0;
+      document.getElementById('attDays').value = String(Math.max(0, monthDays - daysAbsent));
+      document.getElementById('attMsg').textContent = '';
+      updateAttendancePreview();
+    });
 
     document.getElementById('saveAtt').addEventListener('click', async () => {
       const employeeId = document.getElementById('employeeSelect').value;
       const month = document.getElementById('attMonth').value;
       const days_worked = parseInt(document.getElementById('attDays').value, 10);
       const days_absent = parseInt(document.getElementById('attAbsent').value, 10);
-      const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent }) });
+      const extra_deduction_amount = parseFloat(document.getElementById('attExtraDeduction').value) || 0;
+      const penalty_amount = parseFloat(document.getElementById('attPenalty').value) || 0;
+      const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent, extra_deduction_amount, penalty_amount }) });
       document.getElementById('attMsg').textContent = r.status === 200 ? 'Saved' : `Error: ${JSON.stringify(r.body) || r.status}`;
+      updateAttendancePreview();
     });
 
     let currentRecords = [];

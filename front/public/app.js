@@ -240,6 +240,20 @@
   // Inline validation and improved form UX for Attendance
   const attForm = document.getElementById('attendanceForm');
   if (attForm) {
+    const autoFillAttendanceDays = () => {
+      const month = attForm.attMonth.value;
+      if (!month) {
+        document.getElementById('attValidation').textContent = 'Select month before auto-fill.';
+        return;
+      }
+      const [y, m] = month.split('-');
+      const maxDays = new Date(y, m, 0).getDate();
+      const daysAbsent = parseInt(attForm.attAbsent.value, 10) || 0;
+      attForm.attDays.value = String(Math.max(0, maxDays - daysAbsent));
+      document.getElementById('attValidation').textContent = '';
+      attForm.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
     const updateAttendancePreview = () => {
       const previewEl = document.getElementById('attPreview');
       if (!previewEl) return;
@@ -298,6 +312,7 @@
     });
     document.getElementById('employeeSelect')?.addEventListener('change', updateAttendancePreview);
     document.getElementById('attMonth')?.addEventListener('change', updateAttendancePreview);
+    document.getElementById('attAutoFillDays')?.addEventListener('click', autoFillAttendanceDays);
     attForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
