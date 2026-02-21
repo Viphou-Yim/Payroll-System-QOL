@@ -76,10 +76,11 @@ describe('Payroll routes', () => {
     expect(Employee.create).not.toHaveBeenCalled();
   });
 
-  test('POST /api/payroll/employees allows only monthly when debt flag is enabled', async () => {
+  test('POST /api/payroll/employees allows debt flag combinations with cut and no-cut groups', async () => {
     Employee.findOne.mockResolvedValue(null);
 
-    const bad = await request(app)
+    Employee.create.mockResolvedValueOnce({ _id: 'e3', name: 'Carol', payroll_group: 'cut' });
+    const cutProfile = await request(app)
       .post('/api/payroll/employees')
       .set('x-api-key', 'test-api-key')
       .send({
@@ -91,25 +92,25 @@ describe('Payroll routes', () => {
         has_10day_holding: false,
         has_debt_deduction: true
       })
-      .expect(400);
+      .expect(201);
 
-    expect(bad.body.compatible_groups).toEqual(['monthly']);
+    expect(cutProfile.body.message).toBe('Employee created');
 
-    Employee.create.mockResolvedValue({ _id: 'e3', name: 'Carol', payroll_group: 'monthly' });
-    const good = await request(app)
+    Employee.create.mockResolvedValueOnce({ _id: 'e4', name: 'Dara', payroll_group: 'no-cut' });
+    const noCutProfile = await request(app)
       .post('/api/payroll/employees')
       .set('x-api-key', 'test-api-key')
       .send({
-        name: 'Carol',
-        phone: '555-0003',
-        base_salary: 25000,
-        payroll_group: 'monthly',
+        name: 'Dara',
+        phone: '555-0004',
+        base_salary: 26000,
+        payroll_group: 'no-cut',
         has_20_deduction: false,
         has_10day_holding: false,
         has_debt_deduction: true
       })
       .expect(201);
 
-    expect(good.body.message).toBe('Employee created');
+    expect(noCutProfile.body.message).toBe('Employee created');
   });
 });

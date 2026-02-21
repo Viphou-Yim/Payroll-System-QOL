@@ -631,7 +631,6 @@ async function createEmployee(req, res) {
     const hasDebt = !!has_debt_deduction;
 
     const compatibleGroups = allowed.filter((group) => {
-      if (hasDebt) return group === 'monthly';
       if ((has20 || has10dayHolding) && group === 'no-cut') return false;
       return true;
     });
