@@ -47,6 +47,72 @@ function getCurrentYearMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function parseDateOnly(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function splitDateRangeByMonth(startDate, endDate) {
+  const chunks = [];
+  let cursor = new Date(startDate.getTime());
+
+  while (cursor <= endDate) {
+    const chunkStart = new Date(cursor.getTime());
+    const endOfMonth = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
+    const chunkEnd = endOfMonth < endDate ? endOfMonth : new Date(endDate.getTime());
+    const periodDays = Math.floor((chunkEnd - chunkStart) / 86400000) + 1;
+
+    chunks.push({
+      month: toYearMonth(chunkStart),
+      startDate: chunkStart,
+      endDate: chunkEnd,
+      periodDays
+    });
+
+    cursor = new Date(Date.UTC(chunkEnd.getUTCFullYear(), chunkEnd.getUTCMonth(), chunkEnd.getUTCDate() + 1));
+  }
+
+  return chunks;
+}
+
+function distributeAbsentTenths(chunks, totalAbsentTenths) {
+  if (!Array.isArray(chunks) || !chunks.length) return [];
+  if (!Number.isFinite(totalAbsentTenths) || totalAbsentTenths <= 0) {
+    return chunks.map(() => 0);
+  }
+
+  const totalDays = chunks.reduce((sum, chunk) => sum + (chunk.periodDays || 0), 0);
+  if (!totalDays) return chunks.map(() => 0);
+
+  const bases = [];
+  const remainders = [];
+  let assigned = 0;
+
+  chunks.forEach((chunk, index) => {
+    const exact = (totalAbsentTenths * chunk.periodDays) / totalDays;
+    const base = Math.floor(exact);
+    bases[index] = base;
+    remainders[index] = exact - base;
+    assigned += base;
+  });
+
+  let remaining = totalAbsentTenths - assigned;
+  const ranked = remainders
+    .map((remainder, index) => ({ index, remainder }))
+    .sort((a, b) => b.remainder - a.remainder);
+
+  for (let i = 0; i < ranked.length && remaining > 0; i += 1) {
+    bases[ranked[i].index] += 1;
+    remaining -= 1;
+  }
+
+  return bases;
+}
+
 function getZeroAbsenceBonusOptions(payload = {}) {
   const enabled = payload.zero_absence_bonus_enabled === undefined
     ? ZERO_ABSENCE_BONUS_DEFAULT_ENABLED
@@ -790,20 +856,35 @@ async function upsertAttendance(req, res) {
     const {
       employeeId,
       month,
-      days_worked,
+      start_date,
+      end_date,
       days_absent = 0,
       extra_deduction_amount = 0,
       penalty_amount = 0
     } = req.body;
-    if (!employeeId || !month || typeof days_worked !== 'number') return res.status(400).json({ message: 'employeeId, month, and days_worked (number) are required' });
+    if (!employeeId || !month || !start_date || !end_date) return res.status(400).json({ message: 'employeeId, month, start_date, and end_date are required' });
     if (!isValidMonth(month)) return res.status(400).json({ message: 'month must be YYYY-MM' });
-    if (days_worked < 0 || days_worked > 31) return res.status(400).json({ message: 'days_worked must be between 0 and 31' });
+
+    const startDate = parseDateOnly(start_date);
+    const endDate = parseDateOnly(end_date);
+    if (!startDate || !endDate) return res.status(400).json({ message: 'start_date and end_date must be valid dates' });
+    if (endDate < startDate) return res.status(400).json({ message: 'end_date must be on or after start_date' });
+
+    const startMonth = toYearMonth(startDate);
+    if (startMonth !== month) {
+      return res.status(400).json({ message: 'start_date must be within the selected month' });
+    }
+
     if (days_absent < 0) return res.status(400).json({ message: 'days_absent must be non-negative' });
     if (Number(extra_deduction_amount) < 0) return res.status(400).json({ message: 'extra_deduction_amount must be non-negative' });
     if (Number(penalty_amount) < 0) return res.status(400).json({ message: 'penalty_amount must be non-negative' });
 
-    const roundedDaysWorked = Math.floor(days_worked * 10) / 10;
+    const periodDays = Math.floor((endDate - startDate) / 86400000) + 1;
     const roundedDaysAbsent = Math.ceil((Number(days_absent) || 0) * 10) / 10;
+    if (roundedDaysAbsent > periodDays) {
+      return res.status(400).json({ message: 'days_absent cannot exceed selected period days' });
+    }
+    const roundedDaysWorked = Math.floor(Math.max(0, periodDays - roundedDaysAbsent) * 10) / 10;
     const roundedExtraDeduction = Math.ceil((Number(extra_deduction_amount) || 0) * 100) / 100;
     const roundedPenalty = Math.ceil((Number(penalty_amount) || 0) * 100) / 100;
 
@@ -811,11 +892,29 @@ async function upsertAttendance(req, res) {
     const emp = await Employee.findById(employeeId);
     if (!emp) return res.status(404).json({ message: 'Employee not found' });
 
-    const rec = await Attendance.findOneAndUpdate(
-      { employee: employeeId, month },
-      { days_worked: roundedDaysWorked, days_absent: roundedDaysAbsent },
-      { upsert: true, new: true }
-    );
+    const monthChunks = splitDateRangeByMonth(startDate, endDate);
+    const totalAbsentTenths = Math.round(roundedDaysAbsent * 10);
+    const absentTenthsByChunk = distributeAbsentTenths(monthChunks, totalAbsentTenths);
+    const records = [];
+
+    for (let index = 0; index < monthChunks.length; index += 1) {
+      const chunk = monthChunks[index];
+      const chunkAbsent = (absentTenthsByChunk[index] || 0) / 10;
+      const chunkWorked = Math.floor(Math.max(0, chunk.periodDays - chunkAbsent) * 10) / 10;
+
+      const rec = await Attendance.findOneAndUpdate(
+        { employee: employeeId, month: chunk.month },
+        {
+          days_worked: chunkWorked,
+          days_absent: chunkAbsent,
+          start_date: chunk.startDate,
+          end_date: chunk.endDate
+        },
+        { upsert: true, new: true }
+      );
+
+      records.push(rec);
+    }
 
     const attendanceExtraReason = 'Attendance extra deduction';
     const attendancePenaltyReason = 'Attendance penalty';
@@ -842,7 +941,11 @@ async function upsertAttendance(req, res) {
 
     return res.json({
       message: 'Attendance saved',
-      record: rec,
+      record: records[0] || null,
+      records,
+      split_applied: monthChunks.length > 1,
+      period_days: periodDays,
+      days_worked: roundedDaysWorked,
       extra_deduction_amount: roundedExtraDeduction,
       penalty_amount: roundedPenalty
     });

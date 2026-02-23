@@ -15,7 +15,8 @@ const validate = (validations) => async (req, res, next) => {
 const attendanceValidator = validate([
   body('employeeId').exists().withMessage('employeeId is required'),
   body('month').exists().withMessage('month is required').bail().custom(isValidMonth).withMessage('month must be YYYY-MM'),
-  body('days_worked').exists().withMessage('days_worked is required').bail().isFloat({ min: 0, max: 31 }).withMessage('days_worked must be number 0-31'),
+  body('start_date').exists().withMessage('start_date is required').bail().isISO8601().withMessage('start_date must be a valid date'),
+  body('end_date').exists().withMessage('end_date is required').bail().isISO8601().withMessage('end_date must be a valid date'),
   body('days_absent').optional().isFloat({ min: 0 }).withMessage('days_absent must be non-negative number'),
   body('extra_deduction_amount').optional().isFloat({ min: 0 }).withMessage('extra_deduction_amount must be non-negative number'),
   body('penalty_amount').optional().isFloat({ min: 0 }).withMessage('penalty_amount must be non-negative number')

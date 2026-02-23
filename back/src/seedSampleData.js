@@ -27,8 +27,8 @@ async function seed() {
   const emp2 = await Employee.create({ name: 'Bob Smith', phone: '555-5678', base_salary: 24000, payroll_group: 'cut', has_20_deduction: false, has_10day_holding: true });
 
   // Attendance for 2026-01
-  await Attendance.create({ employee: emp1._id, month: '2026-01', days_worked: 30, days_absent: 0 });
-  await Attendance.create({ employee: emp2._id, month: '2026-01', days_worked: 20, days_absent: 10 });
+  await Attendance.create({ employee: emp1._id, month: '2026-01', days_worked: 30, days_absent: 0, start_date: new Date('2026-01-01T00:00:00.000Z'), end_date: new Date('2026-01-30T00:00:00.000Z') });
+  await Attendance.create({ employee: emp2._id, month: '2026-01', days_worked: 20, days_absent: 10, start_date: new Date('2026-01-01T00:00:00.000Z'), end_date: new Date('2026-01-30T00:00:00.000Z') });
 
   // deductions
   await Deduction.create({ employee: emp2._id, type: 'debt', amount: 500, reason: 'loan repayment', month: '2026-01' });

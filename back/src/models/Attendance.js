@@ -10,7 +10,9 @@ const AttendanceSchema = new mongoose.Schema({
   employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
   month: { type: String, required: true }, // format YYYY-MM
   days_worked: { type: Number, required: true }, //is this needed tho?
-  days_absent: { type: Number, default: 0 }
+  days_absent: { type: Number, default: 0 },
+  start_date: { type: Date, required: true },
+  end_date: { type: Date, required: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Attendance', AttendanceSchema);

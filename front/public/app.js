@@ -248,86 +248,140 @@
   // Inline validation and improved form UX for Attendance
   const attForm = document.getElementById('attendanceForm');
   if (attForm) {
-    const autoFillAttendanceDays = () => {
+    const parseDateOnly = (value) => {
+      if (!value) return null;
+      const [y, m, d] = value.split('-').map(Number);
+      if (!y || !m || !d) return null;
+      return new Date(Date.UTC(y, m - 1, d));
+    };
+
+    const formatDateOnly = (date) => {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    const getAttendancePeriodInfo = () => {
       const month = attForm.attMonth.value;
-      if (!month) {
-        document.getElementById('attValidation').textContent = 'Select month before auto-fill.';
-        return;
+      const startDateRaw = attForm.attStartDate.value;
+      const endDateRaw = attForm.attEndDate.value;
+      const startDate = parseDateOnly(startDateRaw);
+      const endDate = parseDateOnly(endDateRaw);
+
+      if (!startDateRaw || !endDateRaw) {
+        return { month, startDateRaw, endDateRaw, periodDays: null, workedDays: null };
       }
-      const [y, m] = month.split('-');
-      const maxDays = new Date(y, m, 0).getDate();
-      const daysAbsent = parseInt(attForm.attAbsent.value, 10) || 0;
-      attForm.attDays.value = String(Math.max(0, maxDays - daysAbsent));
-      document.getElementById('attValidation').textContent = '';
-      attForm.dispatchEvent(new Event('input', { bubbles: true }));
+      if (!startDate || !endDate) {
+        return { month, startDateRaw, endDateRaw, error: 'Start and end date must be valid dates.', periodDays: null, workedDays: null };
+      }
+      if (endDate < startDate) {
+        return { month, startDateRaw, endDateRaw, error: 'End date must be on or after start date.', periodDays: null, workedDays: null };
+      }
+
+      const startMonth = startDateRaw.slice(0, 7);
+      if (month && startMonth !== month) {
+        return { month, startDateRaw, endDateRaw, error: 'Start date must be within the selected month.', periodDays: null, workedDays: null };
+      }
+
+      const periodDays = Math.floor((endDate - startDate) / 86400000) + 1;
+      const daysAbsent = parseFloat(attForm.attAbsent.value) || 0;
+      const workedDays = Math.max(0, periodDays - daysAbsent);
+      return { month, startDateRaw, endDateRaw, periodDays, workedDays };
     };
 
     const updateAttendancePreview = () => {
       const previewEl = document.getElementById('attPreview');
       if (!previewEl) return;
-      const month = attForm.attMonth.value;
       const absent = parseFloat(attForm.attAbsent.value) || 0;
-      const worked = parseFloat(attForm.attDays.value) || 0;
       const extraDeduction = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
       const penalty = parseFloat(attForm.attPenalty?.value || '0') || 0;
+      const periodInfo = getAttendancePeriodInfo();
 
       const selectedId = document.getElementById('employeeSelect')?.value;
       const employee = allEmployees.find((emp) => String(emp._id) === String(selectedId));
 
-      if (!month) {
-        previewEl.textContent = 'Preview: select month to estimate attendance payroll impact.';
+      if (!periodInfo.month || !periodInfo.startDateRaw || !periodInfo.endDateRaw) {
+        previewEl.textContent = 'Preview: select month, start date, and end date.';
+        return;
+      }
+      if (periodInfo.error) {
+        previewEl.textContent = `Preview: ${periodInfo.error}`;
         return;
       }
 
-      const [year, monthIndex] = month.split('-');
-      const monthDays = new Date(year, monthIndex, 0).getDate();
-      const suggestedWorked = Math.max(0, monthDays - absent);
+      const periodDays = periodInfo.periodDays || 0;
+      const worked = periodInfo.workedDays || 0;
 
       if (!employee || employee.base_salary === undefined || employee.base_salary === null) {
-        previewEl.textContent = `Preview: Month days ${monthDays} • Suggested worked ${suggestedWorked} • Extra deductions ${formatMoney(extraDeduction + penalty)}`;
+        previewEl.textContent = `Preview: Period days ${periodDays} • Worked ${worked} • Extra deductions ${formatMoney(extraDeduction + penalty)}`;
         return;
       }
 
       const baseSalary = Number(employee.base_salary) || 0;
       const estimatedGross = ((baseSalary / 30) * Math.max(0, worked));
       const estimatedNetBeforeProfiles = Math.max(0, estimatedGross - extraDeduction - penalty);
-      previewEl.textContent = `Preview: Suggested worked ${suggestedWorked}, entered worked ${worked} • Estimated gross ${formatMoney(estimatedGross)} • Extra deductions ${formatMoney(extraDeduction + penalty)} • Est. net before profile deductions ${formatMoney(estimatedNetBeforeProfiles)}`;
+      previewEl.textContent = `Preview: Period days ${periodDays} • Worked ${worked} • Estimated gross ${formatMoney(estimatedGross)} • Extra deductions ${formatMoney(extraDeduction + penalty)} • Est. net before profile deductions ${formatMoney(estimatedNetBeforeProfiles)}`;
     };
 
     attForm.addEventListener('input', () => {
-      const daysWorked = parseInt(attForm.attDays.value, 10) || 0;
-      const daysAbsent = parseInt(attForm.attAbsent.value, 10) || 0;
+      const daysAbsent = parseFloat(attForm.attAbsent.value) || 0;
       const extraDeduction = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
       const penalty = parseFloat(attForm.attPenalty?.value || '0') || 0;
-      const month = attForm.attMonth.value;
-      let maxDays = 31;
-      if (month) {
-        const [y, m] = month.split('-');
-        maxDays = new Date(y, m, 0).getDate();
-      }
+      const periodInfo = getAttendancePeriodInfo();
+      const worked = Number.isFinite(periodInfo.workedDays) ? periodInfo.workedDays : 0;
+      attForm.attDays.value = String(Math.max(0, worked));
+
       const totalDaysEl = document.getElementById('attTotalDays');
-      if (totalDaysEl) totalDaysEl.textContent = `Total days in month: ${maxDays}`;
+      if (totalDaysEl) {
+        totalDaysEl.textContent = Number.isFinite(periodInfo.periodDays)
+          ? `Days in selected period: ${periodInfo.periodDays}`
+          : 'Days in selected period: --';
+      }
+
       let msg = '';
-      if (daysWorked + daysAbsent > maxDays) msg = `Days worked + absent (${daysWorked + daysAbsent}) exceeds days in month (${maxDays})`;
-      if (daysWorked < 0 || daysAbsent < 0) msg = 'Days must be ≥ 0';
+      if (periodInfo.error) msg = periodInfo.error;
+      if (daysAbsent < 0) msg = 'Days absent must be ≥ 0';
+      if (Number.isFinite(periodInfo.periodDays) && daysAbsent > periodInfo.periodDays) {
+        msg = `Days absent (${daysAbsent}) cannot exceed days in selected period (${periodInfo.periodDays})`;
+      }
       if (extraDeduction < 0 || penalty < 0) msg = 'Extra deduction and penalty must be ≥ 0';
-      attForm.attDays.setCustomValidity(msg);
+
+      attForm.attMonth.setCustomValidity(msg);
+      attForm.attStartDate.setCustomValidity(msg);
+      attForm.attEndDate.setCustomValidity(msg);
       attForm.attAbsent.setCustomValidity(msg);
       if (attForm.attExtraDeduction) attForm.attExtraDeduction.setCustomValidity(msg);
       if (attForm.attPenalty) attForm.attPenalty.setCustomValidity(msg);
       document.getElementById('attValidation').textContent = msg;
       updateAttendancePreview();
     });
+
     document.getElementById('employeeSelect')?.addEventListener('change', updateAttendancePreview);
     document.getElementById('attMonth')?.addEventListener('change', updateAttendancePreview);
-    document.getElementById('attAutoFillDays')?.addEventListener('click', autoFillAttendanceDays);
+    document.getElementById('attStartDate')?.addEventListener('change', () => {
+      const startDate = attForm.attStartDate.value;
+      if (startDate) {
+        attForm.attMonth.value = startDate.slice(0, 7);
+        if (!attForm.attEndDate.value) {
+          const start = parseDateOnly(startDate);
+          if (start) {
+            const defaultEnd = new Date(start.getTime() + (30 * 86400000));
+            attForm.attEndDate.value = formatDateOnly(defaultEnd);
+          }
+        }
+      }
+      attForm.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     attForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
       const employeeId = resolvedEmployee.employeeId;
       const month = attForm.attMonth.value;
-      const days_worked = parseInt(attForm.attDays.value, 10);
-      const days_absent = parseInt(attForm.attAbsent.value, 10);
+      const start_date = attForm.attStartDate.value;
+      const end_date = attForm.attEndDate.value;
+      const days_absent = parseFloat(attForm.attAbsent.value) || 0;
       const extra_deduction_amount = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
       const penalty_amount = parseFloat(attForm.attPenalty?.value || '0') || 0;
       const validation = document.getElementById('attValidation');
@@ -335,15 +389,26 @@
         validation.textContent = resolvedEmployee.error || 'Please select an employee.';
         return;
       }
-      if (attForm.attDays.validity.customError || attForm.attAbsent.validity.customError || (attForm.attExtraDeduction && attForm.attExtraDeduction.validity.customError) || (attForm.attPenalty && attForm.attPenalty.validity.customError)) {
-        validation.textContent = attForm.attDays.validationMessage || attForm.attAbsent.validationMessage || attForm.attExtraDeduction?.validationMessage || attForm.attPenalty?.validationMessage;
+      if (!start_date || !end_date) {
+        validation.textContent = 'Start date and end date are required.';
+        return;
+      }
+      if (
+        attForm.attMonth.validity.customError ||
+        attForm.attStartDate.validity.customError ||
+        attForm.attEndDate.validity.customError ||
+        attForm.attAbsent.validity.customError ||
+        (attForm.attExtraDeduction && attForm.attExtraDeduction.validity.customError) ||
+        (attForm.attPenalty && attForm.attPenalty.validity.customError)
+      ) {
+        validation.textContent = attForm.attMonth.validationMessage || attForm.attStartDate.validationMessage || attForm.attEndDate.validationMessage || attForm.attAbsent.validationMessage || attForm.attExtraDeduction?.validationMessage || attForm.attPenalty?.validationMessage;
         return;
       }
       validation.textContent = '';
       const r = await fetchJson('/api/payroll/attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ employeeId, month, days_worked, days_absent, extra_deduction_amount, penalty_amount })
+        body: JSON.stringify({ employeeId, month, start_date, end_date, days_absent, extra_deduction_amount, penalty_amount })
       });
       if (r.status === 200) {
         document.getElementById('attMsg').textContent = '';
@@ -786,6 +851,8 @@
     if (r.status === 200) {
       $('loginStatus').textContent = '';
       showAuthState(false);
+      window.location.hash = '#login';
+      showRoute();
     } else {
       $('loginStatus').textContent = 'Logout failed';
     }
