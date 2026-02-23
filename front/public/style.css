@@ -133,6 +133,13 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 #sec-records .records-actions > button,
 #sec-records .records-actions .dropdown > button { margin-top: 0; }
 #sec-records .records-actions .dropdown { margin-bottom: 0; }
+#sec-records #loadRecords,
+#sec-records #exportMenuBtn {
+	height: 44px;
+	min-height: 44px;
+	display: inline-flex;
+	align-items: center;
+}
 @media (max-width:700px){ .summary-cards { grid-template-columns: 1fr; } }
 @media (min-width: 700px) { .columns { display:flex; gap:24px } .column { flex:1 } }
 @media (max-width:700px){ .app-shell { padding: 0 8px; } .centered-content { padding: 0 4px; } .tab-bar { gap: 8px; } .app-title { font-size: 1.4rem; } .form-grid.two-col { grid-template-columns: 1fr; } }
