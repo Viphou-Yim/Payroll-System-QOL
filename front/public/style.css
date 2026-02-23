@@ -123,6 +123,8 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 .summary-card .label { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
 .summary-card .value { font-size: 1.2rem; font-weight: 700; }
 .summary-card .meta { color: var(--muted); font-size: 0.88rem; margin-top: 6px; }
+#sec-dashboard .form-grid.two-col { align-items: end; }
+#sec-dashboard #dashMonth { margin-bottom: 0; }
 #sec-dashboard .form-actions { margin-top: 0; margin-bottom: 0; align-items: flex-end; }
 #sec-dashboard .form-actions button { margin-top: 0; }
 @media (max-width:700px){ .summary-cards { grid-template-columns: 1fr; } }
