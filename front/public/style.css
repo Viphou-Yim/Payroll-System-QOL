@@ -121,13 +121,14 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .modal-header h3 { margin: 0; font-size: 1.2rem; }
 .modal-body { display: grid; gap: 16px; margin-bottom: 20px; }
-.rec-edit-card { max-width: 620px; }
+.rec-edit-card { max-width: 760px; }
 .rec-edit-form { display: block; margin-bottom: 0; }
-.rec-edit-form .form-grid { margin-bottom: 14px; }
-.rec-edit-form .form-grid:last-of-type { margin-bottom: 8px; }
-.rec-edit-form label { margin-top: 0; margin-bottom: 8px; }
-.rec-edit-form input { margin-bottom: 0; max-width: none; }
-.rec-edit-form .form-actions { margin-top: 12px; margin-bottom: 8px; }
+.rec-edit-form .form-grid { gap: 20px; margin-bottom: 22px; }
+.rec-edit-form .form-grid:last-of-type { margin-bottom: 14px; }
+.rec-edit-form label { margin-top: 0; margin-bottom: 10px; }
+.rec-edit-form input,
+.rec-edit-form select { margin-bottom: 0; max-width: none; }
+.rec-edit-form .form-actions { margin-top: 18px; margin-bottom: 0; }
 .summary-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
 .summary-card { background: #f5f7fb; border: 1px solid #e6eaf2; padding: 12px; border-radius: 8px; }
 .summary-card .label { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
