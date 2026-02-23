@@ -64,7 +64,7 @@
       <div class="nav-dropdown">
         <button type="button" class="nav-trigger" aria-haspopup="true">System ▾</button>
         <div class="nav-menu" role="menu">
-          <a href="#scheduler" class="tab" id="tab-scheduler" role="menuitem">Scheduler</a>
+          <a href="#scheduler" class="tab" id="tab-scheduler" role="menuitem">Automatic Payroll</a>
           <a href="#login" class="tab" id="tab-login" role="menuitem">Login/Signup</a>
         </div>
       </div>
@@ -571,25 +571,43 @@
 
     <section id="sec-scheduler" class="page" data-route="scheduler" style="display:none">
       <div class="section">
-        <h2>Scheduler</h2>
-        <div class="form-grid two-col" style="max-width:520px">
+        <h2>Automatic Payroll</h2>
+        <div class="section-desc">Set when payroll runs automatically each month.</div>
+        <div class="form-grid two-col" style="max-width:620px">
           <div>
             <label for="schedGroup">Payroll group</label>
-            <input id="schedGroup" value="cut" />
+            <select id="schedGroup">
+              <option value="cut">cut</option>
+              <option value="monthly">monthly</option>
+              <option value="no-cut">no-cut</option>
+            </select>
           </div>
           <div>
-            <label for="schedExpr">Cron expression</label>
-            <input id="schedExpr" value="0 5 1 * *" />
-            <div class="field-help">Runs at 05:00 on day 1 of every month. <a href="https://crontab.guru/" target="_blank" rel="noopener noreferrer">Cron format</a></div>
+            <label for="schedPreset">Run schedule</label>
+            <select id="schedPreset">
+              <option value="0 5 1 * *">1st day of every month at 5:00 AM</option>
+              <option value="0 9 1 * *">1st day of every month at 9:00 AM</option>
+              <option value="0 18 L * *">Last day of month at 6:00 PM</option>
+              <option value="0 9 * * 1">Every Monday at 9:00 AM</option>
+              <option value="custom">Custom (advanced)</option>
+            </select>
           </div>
         </div>
+
+        <details class="advanced" style="max-width:620px">
+          <summary>Advanced schedule (cron)</summary>
+          <label for="schedExpr">Cron expression</label>
+          <input id="schedExpr" value="0 5 1 * *" disabled />
+          <div class="field-help">Used only when Run schedule is set to Custom. <a href="https://crontab.guru/" target="_blank" rel="noopener noreferrer">Cron format</a></div>
+        </details>
+
         <div class="form-actions">
-          <button id="startSched" type="button">Start</button>
-          <button id="stopSched" type="button" class="secondary">Stop</button>
-          <button id="statusSched" type="button" class="secondary">Status</button>
+          <button id="startSched" type="button">Turn On Automation</button>
+          <button id="stopSched" type="button" class="secondary">Turn Off Automation</button>
+          <button id="statusSched" type="button" class="secondary">Check Status</button>
           <span id="schedStatus" class="status-badge">Unknown</span>
         </div>
-        <div id="schedMsg"></div>
+        <div id="schedMsg" class="field-help"></div>
       </div>
     </section>
 

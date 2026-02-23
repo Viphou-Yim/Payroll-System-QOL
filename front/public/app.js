@@ -1995,7 +1995,27 @@
     });
   }
 
-  // Scheduler
+  // Scheduler / Automatic payroll
+  function getSelectedScheduleExpression() {
+    const preset = $('schedPreset')?.value;
+    if (!preset || preset === 'custom') {
+      return ($('schedExpr')?.value || '').trim();
+    }
+    return preset;
+  }
+
+  function syncSchedulePresetUi() {
+    const preset = $('schedPreset')?.value;
+    const cronInput = $('schedExpr');
+    if (!cronInput) return;
+    if (!preset || preset === 'custom') {
+      cronInput.disabled = false;
+      return;
+    }
+    cronInput.value = preset;
+    cronInput.disabled = true;
+  }
+
   function setSchedStatus(label, isRunning) {
     const badge = $('schedStatus');
     if (!badge) return;
@@ -2010,13 +2030,19 @@
       stopBtn.disabled = isRunning === false;
     }
   }
+  $('schedPreset')?.addEventListener('change', syncSchedulePresetUi);
+
   $('startSched').addEventListener('click', async () => {
     const payroll_group = $('schedGroup').value;
-    const cronExpression = $('schedExpr').value;
+    const cronExpression = getSelectedScheduleExpression();
+    if (!cronExpression) {
+      $('schedMsg').textContent = 'Please choose a schedule.';
+      return;
+    }
     const r = await fetchJson('/api/payroll/schedule/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payroll_group, cronExpression }) });
     if (r.status === 200) {
-      $('schedMsg').textContent = 'Scheduler started';
-      setSchedStatus('Running', true);
+      $('schedMsg').textContent = `Automation is ON for ${payroll_group}.`;
+      setSchedStatus('On', true);
     } else {
       $('schedMsg').textContent = `Error: ${r.body.message || r.status}`;
     }
@@ -2027,8 +2053,8 @@
     if (!ok) return;
     const r = await fetchJson('/api/payroll/schedule/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payroll_group }) });
     if (r.status === 200) {
-      $('schedMsg').textContent = 'Scheduler stopped';
-      setSchedStatus('Stopped', false);
+      $('schedMsg').textContent = `Automation is OFF for ${payroll_group}.`;
+      setSchedStatus('Off', false);
     } else {
       $('schedMsg').textContent = `Error: ${r.body.message || r.status}`;
     }
@@ -2037,15 +2063,18 @@
     const payroll_group = $('schedGroup').value;
     const r = await fetchJson(`/api/payroll/schedule?payroll_group=${encodeURIComponent(payroll_group)}`);
     if (r.status === 200) {
-      $('schedMsg').textContent = JSON.stringify(r.body);
       const running = typeof r.body?.running === 'boolean' ? r.body.running : null;
-      if (running !== null) setSchedStatus(running ? 'Running' : 'Stopped', running);
+      $('schedMsg').textContent = running === null
+        ? 'Unable to determine automation status.'
+        : `Automation is ${running ? 'ON' : 'OFF'} for ${payroll_group}.`;
+      if (running !== null) setSchedStatus(running ? 'On' : 'Off', running);
     } else {
       $('schedMsg').textContent = `Error: ${r.body.message || r.status}`;
     }
   });
 
   // Initialize scheduler status controls
+  syncSchedulePresetUi();
   setSchedStatus('Unknown', null);
 
 
