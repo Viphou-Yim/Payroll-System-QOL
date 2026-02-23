@@ -495,14 +495,19 @@ async function exportPayrollCsv(req, res) {
     const query = { month };
     const records = await PayrollRecord.find(query).populate('employee');
 
-    const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON'];
+    const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
     const rows = [header.join(',')];
 
     for (const r of records) {
       const emp = r.employee ? r.employee.name : (r.employee || '');
       const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || '');
-      const deductionsJson = JSON.stringify(r.deductions || []);
-      const cells = [emp, empId, r.month, r.gross_salary, r.total_deductions, r.net_salary, r.withheld_amount, r.carryover_savings, r.bonuses, deductionsJson];
+      const deductionsText = (Array.isArray(r.deductions) ? r.deductions : []).map((deduction) => {
+        const type = deduction?.type || 'deduction';
+        const amount = Number(deduction?.amount || 0).toFixed(2);
+        const reason = deduction?.reason ? ` (${deduction.reason})` : '';
+        return `${type}: ${amount}${reason}`;
+      }).join('; ');
+      const cells = [emp, empId, r.month, r.gross_salary, r.total_deductions, r.net_salary, r.withheld_amount, r.carryover_savings, r.bonuses, deductionsText];
       const escaped = cells.map(v => {
         if (v === null || v === undefined) return '';
         const s = typeof v === 'string' ? v : String(v);

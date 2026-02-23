@@ -276,13 +276,18 @@
     }
 
     function recordsToCsvRows(records) {
-      const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON'];
+      const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
       const rows = [header.join(',')];
       for (const r of records) {
         const emp = r.employee ? r.employee.name : (r.employee || '');
         const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || '');
-        const deductionsJson = JSON.stringify(r.deductions || []);
-        const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsJson)];
+        const deductionsText = (Array.isArray(r.deductions) ? r.deductions : []).map((d) => {
+          const type = d && d.type ? d.type : 'deduction';
+          const amount = Number(d && d.amount ? d.amount : 0).toFixed(2);
+          const reason = d && d.reason ? ` (${d.reason})` : '';
+          return `${type}: ${amount}${reason}`;
+        }).join('; ');
+        const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)];
         rows.push(row.join(','));
       }
       return rows;
