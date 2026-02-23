@@ -700,26 +700,47 @@
 
     <div id="recSummaryEditModal" class="modal" aria-hidden="true">
       <div class="modal-backdrop" data-close="true"></div>
-      <div class="modal-card">
+      <div class="modal-card rec-edit-card">
         <div class="modal-header">
           <h3>Edit Record</h3>
           <button type="button" class="icon-btn" id="recSummaryEditClose" aria-label="Close">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
-        <form id="recSummaryEditForm" class="modal-body">
-          <label for="recEditGross">Gross</label>
-          <input id="recEditGross" type="number" step="0.01" required />
-          <label for="recEditDeductions">Total deductions</label>
-          <input id="recEditDeductions" type="number" step="0.01" required />
-          <label for="recEditNet">Net</label>
-          <input id="recEditNet" type="number" step="0.01" required />
-          <label for="recEditBonuses">Bonuses</label>
-          <input id="recEditBonuses" type="number" step="0.01" required />
-          <label for="recEditWithheld">Withheld</label>
-          <input id="recEditWithheld" type="number" step="0.01" required />
-          <label for="recEditCarry">Carryover savings</label>
-          <input id="recEditCarry" type="number" step="0.01" required />
+        <form id="recSummaryEditForm" class="modal-body rec-edit-form">
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditGross">Gross</label>
+              <input id="recEditGross" type="number" step="0.01" required />
+            </div>
+            <div>
+              <label for="recEditDeductions">Total deductions</label>
+              <input id="recEditDeductions" type="number" step="0.01" required />
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditNet">Net</label>
+              <input id="recEditNet" type="number" step="0.01" required />
+            </div>
+            <div>
+              <label for="recEditBonuses">Bonuses</label>
+              <input id="recEditBonuses" type="number" step="0.01" required />
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditWithheld">Withheld</label>
+              <input id="recEditWithheld" type="number" step="0.01" required />
+            </div>
+            <div>
+              <label for="recEditCarry">Carryover savings</label>
+              <input id="recEditCarry" type="number" step="0.01" required />
+            </div>
+          </div>
+
           <div class="form-actions">
             <button type="submit" id="recEditSave">Save</button>
             <button type="button" id="recEditCancel" class="secondary">Cancel</button>
