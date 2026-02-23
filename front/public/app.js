@@ -654,8 +654,18 @@
     });
   }
   function escapeCsv(val) { if (val === null || val === undefined) return ''; const s = typeof val === 'string' ? val : String(val); if (s.includes(',') || s.includes('\n') || s.includes('"')) { return '"' + s.replace(/"/g,'""') + '"'; } return s; }
+  function formatDeductionsText(deductions) {
+    const list = Array.isArray(deductions) ? deductions : [];
+    if (!list.length) return '';
+    return list.map((deduction) => {
+      const type = deduction?.type || 'deduction';
+      const amount = Number(deduction?.amount || 0);
+      const reason = deduction?.reason ? ` (${deduction.reason})` : '';
+      return `${type}: ${formatMoney(amount)}${reason}`;
+    }).join('; ');
+  }
   function downloadCsv(filename, rows) { const csv = rows.join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000); }
-  function recordsToCsvRows(records) { const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsJson = JSON.stringify(r.deductions || []); const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsJson)]; rows.push(row.join(',')); } return rows; }
+  function recordsToCsvRows(records) { const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsText = formatDeductionsText(r.deductions); const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)]; rows.push(row.join(',')); } return rows; }
   function recordsToExportRows(records) {
     return (records || []).map((r) => ({
       Employee: r.employee ? r.employee.name : (r.employee || ''),
@@ -666,7 +676,8 @@
       Net: Number(r.net_salary || 0),
       Withheld: Number(r.withheld_amount || 0),
       CarryoverSavings: Number(r.carryover_savings || 0),
-      Bonuses: Number(r.bonuses || 0)
+      Bonuses: Number(r.bonuses || 0),
+      Deductions: formatDeductionsText(r.deductions)
     }));
   }
   function downloadExcel(filename, records) {
@@ -687,7 +698,7 @@
       return;
     }
     const rows = recordsToExportRows(records);
-    const headers = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses'];
+    const headers = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
     const body = rows.map((row) => headers.map((h) => row[h]));
     const doc = new jsPdfLib({ orientation: 'landscape' });
     doc.setFontSize(12);
