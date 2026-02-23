@@ -734,6 +734,30 @@ async function updateEmployeeStatus(req, res) {
   }
 }
 
+// Delete employee and related records (admin)
+async function deleteEmployee(req, res) {
+  try {
+    const { id } = req.params;
+    const employee = await Employee.findById(id);
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    await Promise.all([
+      Attendance.deleteMany({ employee: id }),
+      Deduction.deleteMany({ employee: id }),
+      Bonuses.deleteMany({ employee: id }),
+      DebtPayment.deleteMany({ employee: id }),
+      Saving.deleteMany({ employee: id }),
+      PayrollRecord.deleteMany({ employee: id })
+    ]);
+
+    await Employee.findByIdAndDelete(id);
+    return res.json({ message: 'Employee deleted', employeeId: id, employeeName: employee.name || '' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 async function payoutSavingsForFestival(req, res) {
   try {
     const { festival, month, employeeId } = req.body || {};
@@ -1249,6 +1273,7 @@ module.exports = {
   listAllEmployees,
   updateEmployee,
   updateEmployeeStatus,
+  deleteEmployee,
   createEmployee,
   getSavings,
   updateSaving,

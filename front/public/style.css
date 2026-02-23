@@ -97,6 +97,9 @@ th, td { padding:12px; border:1px solid #eee; text-align:left; font-size: 1rem; 
 .table-wrap th { position: sticky; top: 0; background: #fff; z-index: 1; }
 .employee-active-cell { text-align: center; }
 .employee-active-cell input[type="checkbox"] { width: auto; max-width: none; margin: 0; }
+.employee-actions-cell { white-space: nowrap; }
+.employee-actions-cell button { margin-top: 0; margin-right: 8px; }
+.employee-actions-cell button:last-child { margin-right: 0; }
 .summary-table-wrap { margin-top: 32px; border: 1px solid #eee; border-radius: 8px; overflow: auto; }
 .summary-table { width: 100%; border-collapse: collapse; }
 .summary-table th { text-align: left; padding: 10px 12px; background: #fafafa; font-size: 0.95rem; border-bottom: 2px solid #ddd; }

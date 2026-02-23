@@ -471,72 +471,82 @@
     renderEmployeesTable(filterEmployees(currentEmployees));
   }
 
-  function parseYesNo(value) {
-    const normalized = String(value || '').trim().toLowerCase();
-    if (['y', 'yes', 'true', '1'].includes(normalized)) return true;
-    if (['n', 'no', 'false', '0'].includes(normalized)) return false;
-    return null;
+  function formatEmployeeDetails(employee) {
+    const startDate = employee?.start_date ? new Date(employee.start_date) : null;
+    const startText = startDate && !Number.isNaN(startDate.getTime()) ? startDate.toISOString().slice(0, 10) : '--';
+    return [
+      `Name: ${employee?.name || '--'}`,
+      `Phone: ${employee?.phone || '--'}`,
+      `Employee ID: ${employee?._id || '--'}`,
+      `Payroll group: ${employee?.payroll_group || '--'}`,
+      `Base salary: ${formatMoney(employee?.base_salary || 0)}`,
+      `Start date: ${startText}`,
+      `Has $20 deduction: ${employee?.has_20_deduction ? 'Yes' : 'No'}`,
+      `Has 10-day holding: ${employee?.has_10day_holding ? 'Yes' : 'No'}`,
+      `Has debt deduction: ${employee?.has_debt_deduction ? 'Yes' : 'No'}`,
+      `Active: ${employee?.active ? 'Yes' : 'No'}`
+    ].join('\n');
   }
 
-  async function editEmployee(employee) {
+  const employeeViewModal = $('employeeViewModal');
+  const employeeEditModal = $('employeeEditModal');
+  let activeEmployeeView = null;
+
+  function openEmployeeView(employee) {
+    if (!employeeViewModal) return;
+    activeEmployeeView = employee || null;
+    const body = $('employeeViewBody');
+    if (body) body.textContent = formatEmployeeDetails(employee);
+    employeeViewModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeEmployeeView() {
+    if (!employeeViewModal) return;
+    employeeViewModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function openEmployeeEdit(employee) {
+    if (!employeeEditModal || !employee) return;
+    $('employeeEditId').value = employee._id || '';
+    $('employeeEditName').value = employee.name || '';
+    $('employeeEditPhone').value = employee.phone || '';
+    $('employeeEditSalary').value = employee.base_salary ?? 0;
+    $('employeeEditGroup').value = employee.payroll_group || 'cut';
+    $('employeeEditHas20').checked = !!employee.has_20_deduction;
+    $('employeeEditHas10').checked = !!employee.has_10day_holding;
+    $('employeeEditHasDebt').checked = !!employee.has_debt_deduction;
+    $('employeeEditActive').checked = !!employee.active;
+    const startDate = employee.start_date ? new Date(employee.start_date) : null;
+    $('employeeEditStartDate').value = startDate && !Number.isNaN(startDate.getTime())
+      ? startDate.toISOString().slice(0, 10)
+      : '';
+    const status = $('employeeEditStatus');
+    if (status) status.textContent = '';
+    employeeEditModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeEmployeeEdit() {
+    if (!employeeEditModal) return;
+    employeeEditModal.setAttribute('aria-hidden', 'true');
+  }
+
+  async function deleteEmployee(employee) {
     if (!employee || !employee._id) return;
-    const name = window.prompt('Full name', employee.name || '');
-    if (name === null) return;
-
-    const phone = window.prompt('Phone', employee.phone || '');
-    if (phone === null) return;
-
-    const baseSalaryRaw = window.prompt('Base salary', String(employee.base_salary ?? '0'));
-    if (baseSalaryRaw === null) return;
-    const baseSalary = parseFloat(baseSalaryRaw);
-    if (Number.isNaN(baseSalary)) {
-      showToast('Base salary must be a number');
-      return;
-    }
-
-    const payrollGroup = window.prompt('Payroll group (cut, no-cut, monthly)', employee.payroll_group || '');
-    if (payrollGroup === null) return;
-    const group = String(payrollGroup).trim();
-    if (!['cut', 'no-cut', 'monthly'].includes(group)) {
-      showToast('Payroll group must be cut, no-cut, or monthly');
-      return;
-    }
-
-    const has20Input = window.prompt('Apply $20 deduction? (yes/no)', employee.has_20_deduction ? 'yes' : 'no');
-    if (has20Input === null) return;
-    const has20 = parseYesNo(has20Input);
-    if (has20 === null) {
-      showToast('Please enter yes or no for $20 deduction');
-      return;
-    }
-
-    const has10Input = window.prompt('Apply 10-day holding? (yes/no)', employee.has_10day_holding ? 'yes' : 'no');
-    if (has10Input === null) return;
-    const has10 = parseYesNo(has10Input);
-    if (has10 === null) {
-      showToast('Please enter yes or no for 10-day holding');
-      return;
-    }
+    const ok = window.confirm(`Delete employee "${employee.name || employee._id}"? This will remove payroll-related records for this employee.`);
+    if (!ok) return;
 
     const r = await fetchJson(`/api/payroll/employees/${employee._id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: String(name).trim(),
-        phone: String(phone).trim(),
-        base_salary: baseSalary,
-        payroll_group: group,
-        has_20_deduction: has20,
-        has_10day_holding: has10
-      })
+      method: 'DELETE'
     });
 
     if (r.status !== 200) {
-      showToast(r.body?.message || 'Failed to update employee');
+      showToast(r.body?.message || 'Failed to delete employee');
       return;
     }
 
-    showToast('Employee updated');
+    showToast('Employee deleted');
+    closeEmployeeView();
+    closeEmployeeEdit();
     await loadEmployeesForList();
     await loadEmployees();
   }
@@ -610,14 +620,33 @@
       activeCell.appendChild(activeCheckbox);
 
       const actionsCell = tr.querySelector('.employee-actions-cell');
+      const viewBtn = document.createElement('button');
+      viewBtn.type = 'button';
+      viewBtn.className = 'secondary';
+      viewBtn.textContent = 'View';
+      viewBtn.addEventListener('click', () => {
+        openEmployeeView(employee);
+      });
+
       const editBtn = document.createElement('button');
       editBtn.type = 'button';
       editBtn.className = 'secondary';
       editBtn.textContent = 'Edit';
       editBtn.addEventListener('click', () => {
-        editEmployee(employee);
+        openEmployeeEdit(employee);
       });
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.type = 'button';
+      deleteBtn.className = 'secondary';
+      deleteBtn.textContent = 'Delete';
+      deleteBtn.addEventListener('click', () => {
+        deleteEmployee(employee);
+      });
+
+      actionsCell.appendChild(viewBtn);
       actionsCell.appendChild(editBtn);
+      actionsCell.appendChild(deleteBtn);
 
       tbody.appendChild(tr);
     });
@@ -625,6 +654,97 @@
     wrap.appendChild(tbl);
     container.appendChild(wrap);
   }
+
+  if (employeeViewModal) {
+    employeeViewModal.addEventListener('click', (e) => {
+      if (e.target?.getAttribute('data-close') === 'true') closeEmployeeView();
+    });
+  }
+  $('employeeViewClose')?.addEventListener('click', closeEmployeeView);
+  $('employeeViewEdit')?.addEventListener('click', () => {
+    if (!activeEmployeeView) return;
+    closeEmployeeView();
+    openEmployeeEdit(activeEmployeeView);
+  });
+  $('employeeViewDelete')?.addEventListener('click', async () => {
+    if (!activeEmployeeView) return;
+    await deleteEmployee(activeEmployeeView);
+  });
+
+  if (employeeEditModal) {
+    employeeEditModal.addEventListener('click', (e) => {
+      if (e.target?.getAttribute('data-close') === 'true') closeEmployeeEdit();
+    });
+  }
+  $('employeeEditClose')?.addEventListener('click', closeEmployeeEdit);
+  $('employeeEditCancel')?.addEventListener('click', closeEmployeeEdit);
+
+  $('employeeEditForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = $('employeeEditId').value;
+    const name = String($('employeeEditName').value || '').trim();
+    const phone = String($('employeeEditPhone').value || '').trim();
+    const base_salary = parseFloat($('employeeEditSalary').value);
+    const payroll_group = String($('employeeEditGroup').value || '').trim();
+    const has_20_deduction = !!$('employeeEditHas20').checked;
+    const has_10day_holding = !!$('employeeEditHas10').checked;
+    const has_debt_deduction = !!$('employeeEditHasDebt').checked;
+    const active = !!$('employeeEditActive').checked;
+    const start_date = $('employeeEditStartDate').value || '';
+    const status = $('employeeEditStatus');
+
+    if (!id) {
+      if (status) status.textContent = 'Employee id is missing.';
+      return;
+    }
+    if (!name) {
+      if (status) status.textContent = 'Name is required.';
+      return;
+    }
+    if (Number.isNaN(base_salary)) {
+      if (status) status.textContent = 'Base salary must be a number.';
+      return;
+    }
+    if (!['cut', 'no-cut', 'monthly'].includes(payroll_group)) {
+      if (status) status.textContent = 'Payroll group must be cut, no-cut, or monthly.';
+      return;
+    }
+
+    if (status) status.textContent = '';
+    const r = await fetchJson(`/api/payroll/employees/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        phone,
+        base_salary,
+        payroll_group,
+        has_20_deduction,
+        has_10day_holding,
+        has_debt_deduction,
+        start_date: start_date || null,
+        active
+      })
+    });
+
+    if (r.status !== 200) {
+      if (status) status.textContent = r.body?.message || 'Failed to update employee';
+      return;
+    }
+
+    if (active !== undefined) {
+      await fetchJson(`/api/payroll/employees/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active })
+      });
+    }
+
+    showToast('Employee updated');
+    closeEmployeeEdit();
+    await loadEmployeesForList();
+    await loadEmployees();
+  });
 
   function renderEmployees() {
     currentEmployees = [...currentEmployees];

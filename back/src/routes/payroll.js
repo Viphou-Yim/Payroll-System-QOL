@@ -46,6 +46,7 @@ router.get('/employees/all', sessionAuth.requireAdmin, controller.listAllEmploye
 router.post('/employees', sessionAuth.requireAdmin, controller.createEmployee);
 router.patch('/employees/:id', sessionAuth.requireAdmin, controller.updateEmployee);
 router.patch('/employees/:id/status', sessionAuth.requireAdmin, controller.updateEmployeeStatus);
+router.delete('/employees/:id', sessionAuth.requireAdmin, controller.deleteEmployee);
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);

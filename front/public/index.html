@@ -281,6 +281,81 @@
         <div id="employeesList"></div>
       </div>
     </section>
+
+    <div id="employeeViewModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Employee Details</h3>
+          <button type="button" class="icon-btn" id="employeeViewClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <pre id="employeeViewBody" class="response-block" style="margin-top:0"></pre>
+        <div class="form-actions" style="margin-bottom:0">
+          <button type="button" id="employeeViewEdit">Edit</button>
+          <button type="button" id="employeeViewDelete" class="secondary">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="employeeEditModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card" style="max-width:560px">
+        <div class="modal-header">
+          <h3>Edit Employee</h3>
+          <button type="button" class="icon-btn" id="employeeEditClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <form id="employeeEditForm" class="modal-body" style="margin-bottom:0">
+          <input type="hidden" id="employeeEditId" />
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditName">Name</label>
+              <input id="employeeEditName" required />
+            </div>
+            <div>
+              <label for="employeeEditPhone">Phone</label>
+              <input id="employeeEditPhone" />
+            </div>
+          </div>
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditSalary">Base salary</label>
+              <input id="employeeEditSalary" type="number" min="0" step="0.01" required />
+            </div>
+            <div>
+              <label for="employeeEditGroup">Payroll group</label>
+              <select id="employeeEditGroup" required>
+                <option value="cut">cut</option>
+                <option value="no-cut">no-cut</option>
+                <option value="monthly">monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditStartDate">Start date</label>
+              <input id="employeeEditStartDate" type="date" />
+            </div>
+            <div>
+              <label style="margin-bottom:8px">Flags</label>
+              <label class="checkbox-row"><input id="employeeEditHas20" type="checkbox" /> Has $20 deduction</label>
+              <label class="checkbox-row"><input id="employeeEditHas10" type="checkbox" /> Has 10-day holding</label>
+              <label class="checkbox-row"><input id="employeeEditHasDebt" type="checkbox" /> Has debt deduction</label>
+              <label class="checkbox-row"><input id="employeeEditActive" type="checkbox" /> Active</label>
+            </div>
+          </div>
+          <div id="employeeEditStatus" class="field-error"></div>
+          <div class="form-actions" style="margin-bottom:0">
+            <button type="submit" id="employeeEditSave">Save</button>
+            <button type="button" id="employeeEditCancel" class="secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <section id="sec-attendance" class="page" data-route="attendance" style="display:none">
       <div class="section">
         <h2>Attendance</h2>
