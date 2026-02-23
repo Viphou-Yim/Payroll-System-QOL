@@ -704,8 +704,36 @@
     });
     doc.save(filename);
   }
-  function showRecordDetails(rec) { const d = $('recordDetails'); d.style.display = 'block'; const emp = rec.employee ? `${rec.employee.name} (${rec.employee._id})` : (rec.employee || ''); d.textContent = `Employee: ${emp}\nMonth: ${rec.month}\nGross: ${rec.gross_salary}\nTotal deductions: ${rec.total_deductions}\nNet: ${rec.net_salary}\nWithheld: ${rec.withheld_amount}\nCarryover savings: ${rec.carryover_savings}\nBonuses: ${JSON.stringify(rec.bonuses, null, 2)}\nDeductions: ${JSON.stringify(rec.deductions, null, 2)}`;
-    const btnId = 'exportRecBtn'; if (!document.getElementById(btnId)) { const btn = document.createElement('button'); btn.id = btnId; btn.textContent = 'Export This Record CSV'; btn.addEventListener('click', () => { const rows = recordsToCsvRows([rec]); downloadCsv(`payroll_${rec.employee && rec.employee._id ? rec.employee._id : 'record'}_${rec.month}.csv`, rows); }); d.appendChild(document.createElement('div')).appendChild(btn); }
+  function showRecordDetails(rec) {
+    const d = $('recordDetails');
+    d.style.display = 'block';
+
+    const emp = rec.employee
+      ? `${rec.employee.name} (${rec.employee._id})`
+      : (rec.employee || '');
+
+    const cardHtml = formatRunResult(rec, emp);
+    const payrollId = rec?._id ? `<div class="run-row"><span class="run-label">Payroll ID:</span> ${escapeHtml(rec._id)}</div>` : '';
+    const createdAt = rec?.createdAt ? `<div class="run-row"><span class="run-label">Created:</span> ${escapeHtml(formatDate(rec.createdAt))}</div>` : '';
+
+    d.innerHTML = `
+      ${cardHtml}
+      <div class="run-result" style="margin-top:12px;">
+        ${payrollId}
+        ${createdAt}
+      </div>
+      <div class="form-actions" style="margin-top:12px;margin-bottom:0;">
+        <button id="exportRecBtn" type="button">Export This Record CSV</button>
+      </div>
+    `;
+
+    const exportBtn = document.getElementById('exportRecBtn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', () => {
+        const rows = recordsToCsvRows([rec]);
+        downloadCsv(`payroll_${rec.employee && rec.employee._id ? rec.employee._id : 'record'}_${rec.month}.csv`, rows);
+      });
+    }
   }
 
   $('loadRecords').addEventListener('click', () => { renderRecords(); });
