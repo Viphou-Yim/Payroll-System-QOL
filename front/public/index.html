@@ -360,19 +360,12 @@
       <div class="section">
         <h2>Attendance</h2>
         <form id="attendanceForm" style="max-width:520px">
-          <div class="form-grid two-col">
-            <div>
-              <label>Employee Search</label>
-              <div class="employee-search-box">
-                <input id="attEmpName" placeholder="Name (first or last)" class="emp-search-input" />
-                <input id="attEmpPhone" placeholder="Phone" class="emp-search-input" />
-                <select id="employeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
-              </div>
-            </div>
-            <div>
-              <label for="attMonth">Month</label>
-              <input id="attMonth" type="month" required />
-              <div id="attTotalDays" class="field-help">Days in selected period: --</div>
+          <div>
+            <label>Employee Search</label>
+            <div class="employee-search-box">
+              <input id="attEmpName" placeholder="Name (first or last)" class="emp-search-input" />
+              <input id="attEmpPhone" placeholder="Phone" class="emp-search-input" />
+              <select id="employeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
             </div>
           </div>
           <div class="form-grid two-col">
@@ -385,6 +378,7 @@
               <input id="attEndDate" type="date" required />
             </div>
           </div>
+          <div id="attTotalDays" class="field-help">Days in selected period: --</div>
           <div class="form-grid two-col">
             <div>
               <label for="attAbsent">Days absent</label>
@@ -406,7 +400,7 @@
               <input id="attPenalty" type="number" min="0" step="0.01" value="0" />
             </div>
           </div>
-          <div id="attPreview" class="preview-card">Preview: select employee and month.</div>
+          <div id="attPreview" class="preview-card">Preview: select employee, start date, and end date.</div>
           <div id="attValidation" style="color:#b00;font-size:0.95em;margin-bottom:8px;"></div>
           <button id="saveAtt" type="submit">Save Attendance</button>
         </form>

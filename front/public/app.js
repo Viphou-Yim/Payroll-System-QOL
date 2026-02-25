@@ -263,31 +263,25 @@
     };
 
     const getAttendancePeriodInfo = () => {
-      const month = attForm.attMonth.value;
       const startDateRaw = attForm.attStartDate.value;
       const endDateRaw = attForm.attEndDate.value;
       const startDate = parseDateOnly(startDateRaw);
       const endDate = parseDateOnly(endDateRaw);
 
       if (!startDateRaw || !endDateRaw) {
-        return { month, startDateRaw, endDateRaw, periodDays: null, workedDays: null };
+        return { startDateRaw, endDateRaw, periodDays: null, workedDays: null };
       }
       if (!startDate || !endDate) {
-        return { month, startDateRaw, endDateRaw, error: 'Start and end date must be valid dates.', periodDays: null, workedDays: null };
+        return { startDateRaw, endDateRaw, error: 'Start and end date must be valid dates.', periodDays: null, workedDays: null };
       }
       if (endDate < startDate) {
-        return { month, startDateRaw, endDateRaw, error: 'End date must be on or after start date.', periodDays: null, workedDays: null };
-      }
-
-      const startMonth = startDateRaw.slice(0, 7);
-      if (month && startMonth !== month) {
-        return { month, startDateRaw, endDateRaw, error: 'Start date must be within the selected month.', periodDays: null, workedDays: null };
+        return { startDateRaw, endDateRaw, error: 'End date must be on or after start date.', periodDays: null, workedDays: null };
       }
 
       const periodDays = Math.floor((endDate - startDate) / 86400000) + 1;
       const daysAbsent = parseFloat(attForm.attAbsent.value) || 0;
       const workedDays = Math.max(0, periodDays - daysAbsent);
-      return { month, startDateRaw, endDateRaw, periodDays, workedDays };
+      return { startDateRaw, endDateRaw, periodDays, workedDays };
     };
 
     const updateAttendancePreview = () => {
@@ -301,8 +295,8 @@
       const selectedId = document.getElementById('employeeSelect')?.value;
       const employee = allEmployees.find((emp) => String(emp._id) === String(selectedId));
 
-      if (!periodInfo.month || !periodInfo.startDateRaw || !periodInfo.endDateRaw) {
-        previewEl.textContent = 'Preview: select month, start date, and end date.';
+      if (!periodInfo.startDateRaw || !periodInfo.endDateRaw) {
+        previewEl.textContent = 'Preview: select start date and end date.';
         return;
       }
       if (periodInfo.error) {
@@ -347,7 +341,6 @@
       }
       if (extraDeduction < 0 || penalty < 0) msg = 'Extra deduction and penalty must be ≥ 0';
 
-      attForm.attMonth.setCustomValidity(msg);
       attForm.attStartDate.setCustomValidity(msg);
       attForm.attEndDate.setCustomValidity(msg);
       attForm.attAbsent.setCustomValidity(msg);
@@ -358,11 +351,9 @@
     });
 
     document.getElementById('employeeSelect')?.addEventListener('change', updateAttendancePreview);
-    document.getElementById('attMonth')?.addEventListener('change', updateAttendancePreview);
     document.getElementById('attStartDate')?.addEventListener('change', () => {
       const startDate = attForm.attStartDate.value;
       if (startDate) {
-        attForm.attMonth.value = startDate.slice(0, 7);
         if (!attForm.attEndDate.value) {
           const start = parseDateOnly(startDate);
           if (start) {
@@ -378,9 +369,9 @@
       e.preventDefault();
       const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
       const employeeId = resolvedEmployee.employeeId;
-      const month = attForm.attMonth.value;
       const start_date = attForm.attStartDate.value;
       const end_date = attForm.attEndDate.value;
+      const month = start_date ? start_date.slice(0, 7) : '';
       const days_absent = parseFloat(attForm.attAbsent.value) || 0;
       const extra_deduction_amount = parseFloat(attForm.attExtraDeduction?.value || '0') || 0;
       const penalty_amount = parseFloat(attForm.attPenalty?.value || '0') || 0;
@@ -394,14 +385,13 @@
         return;
       }
       if (
-        attForm.attMonth.validity.customError ||
         attForm.attStartDate.validity.customError ||
         attForm.attEndDate.validity.customError ||
         attForm.attAbsent.validity.customError ||
         (attForm.attExtraDeduction && attForm.attExtraDeduction.validity.customError) ||
         (attForm.attPenalty && attForm.attPenalty.validity.customError)
       ) {
-        validation.textContent = attForm.attMonth.validationMessage || attForm.attStartDate.validationMessage || attForm.attEndDate.validationMessage || attForm.attAbsent.validationMessage || attForm.attExtraDeduction?.validationMessage || attForm.attPenalty?.validationMessage;
+        validation.textContent = attForm.attStartDate.validationMessage || attForm.attEndDate.validationMessage || attForm.attAbsent.validationMessage || attForm.attExtraDeduction?.validationMessage || attForm.attPenalty?.validationMessage;
         return;
       }
       validation.textContent = '';
