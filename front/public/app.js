@@ -365,6 +365,10 @@
       attForm.dispatchEvent(new Event('input', { bubbles: true }));
     });
 
+    document.getElementById('attEndDate')?.addEventListener('change', () => {
+      attForm.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
     attForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const resolvedEmployee = resolveEmployeeFromInputs('employeeSelect', 'attEmpName', 'attEmpPhone');
