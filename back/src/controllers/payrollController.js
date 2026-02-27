@@ -495,11 +495,12 @@ async function exportPayrollCsv(req, res) {
     const query = { month };
     const records = await PayrollRecord.find(query).populate('employee');
 
-    const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
+    const header = ['Employee','Gender','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
     const rows = [header.join(',')];
 
     for (const r of records) {
       const emp = r.employee ? r.employee.name : (r.employee || '');
+      const gender = r.employee?.gender || '';
       const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || '');
       const deductionsText = (Array.isArray(r.deductions) ? r.deductions : []).map((deduction) => {
         const type = deduction?.type || 'deduction';
@@ -507,7 +508,7 @@ async function exportPayrollCsv(req, res) {
         const reason = deduction?.reason ? ` (${deduction.reason})` : '';
         return `${type}: ${amount}${reason}`;
       }).join('; ');
-      const cells = [emp, empId, r.month, r.gross_salary, r.total_deductions, r.net_salary, r.withheld_amount, r.carryover_savings, r.bonuses, deductionsText];
+      const cells = [emp, gender, empId, r.month, r.gross_salary, r.total_deductions, r.net_salary, r.withheld_amount, r.carryover_savings, r.bonuses, deductionsText];
       const escaped = cells.map(v => {
         if (v === null || v === undefined) return '';
         const s = typeof v === 'string' ? v : String(v);
@@ -602,7 +603,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone base_salary');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -613,7 +614,7 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone gender active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -631,6 +632,7 @@ async function updateEmployee(req, res) {
     const {
       name,
       phone,
+      gender,
       base_salary,
       payroll_group,
       has_20_deduction,
@@ -641,6 +643,7 @@ async function updateEmployee(req, res) {
 
     const nextName = name === undefined ? employee.name : String(name || '').trim();
     const nextPhone = phone === undefined ? employee.phone : String(phone || '').trim();
+    const nextGender = gender === undefined ? employee.gender : String(gender || '').trim().toLowerCase();
     const nextGroup = payroll_group === undefined ? employee.payroll_group : String(payroll_group || '').trim();
     const nextBaseSalary = base_salary === undefined ? Number(employee.base_salary) : Number(base_salary);
     const nextHas20 = has_20_deduction === undefined ? !!employee.has_20_deduction : !!has_20_deduction;
@@ -649,6 +652,9 @@ async function updateEmployee(req, res) {
 
     if (!nextName) return res.status(400).json({ message: 'name is required' });
     if (Number.isNaN(nextBaseSalary)) return res.status(400).json({ message: 'base_salary must be a number' });
+    if (nextGender && !['male', 'female'].includes(nextGender)) {
+      return res.status(400).json({ message: 'gender must be one of: male, female' });
+    }
 
     const allowed = ['cut', 'no-cut', 'monthly'];
     if (!allowed.includes(nextGroup)) {
@@ -674,6 +680,7 @@ async function updateEmployee(req, res) {
     const update = {
       name: nextName,
       phone: nextPhone,
+      gender: nextGender || undefined,
       base_salary: nextBaseSalary,
       payroll_group: nextGroup,
       has_20_deduction: nextHas20,
@@ -686,7 +693,7 @@ async function updateEmployee(req, res) {
     }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
-      .select('_id name payroll_group phone active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+      .select('_id name payroll_group phone gender active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
 
     return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
@@ -708,7 +715,7 @@ async function updateEmployeeStatus(req, res) {
       id,
       { active },
       { new: true, runValidators: true }
-    ).select('_id name payroll_group phone active');
+    ).select('_id name payroll_group phone gender active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
@@ -808,6 +815,7 @@ async function createEmployee(req, res) {
     const {
       name,
       phone = '',
+      gender,
       base_salary,
       payroll_group,
       has_20_deduction = false,
@@ -825,6 +833,12 @@ async function createEmployee(req, res) {
     if (!pg) return res.status(400).json({ message: 'payroll_group is required' });
     const allowed = ['cut','no-cut','monthly'];
     if (!allowed.includes(pg)) return res.status(400).json({ message: `payroll_group must be one of: ${allowed.join(', ')}` });
+    const normalizedGender = gender === undefined || gender === null
+      ? ''
+      : String(gender).trim().toLowerCase();
+    if (normalizedGender && !['male', 'female'].includes(normalizedGender)) {
+      return res.status(400).json({ message: 'gender must be one of: male, female' });
+    }
 
     const has20 = !!has_20_deduction;
     const has10dayHolding = !!has_10day_holding;
@@ -849,6 +863,7 @@ async function createEmployee(req, res) {
     const emp = await Employee.create({
       name: name.trim(),
       phone: phone.trim(),
+      gender: normalizedGender || undefined,
       base_salary: Number(base_salary),
       payroll_group: pg,
       has_20_deduction: has20,
@@ -1080,7 +1095,7 @@ async function createDebtPayment(req, res) {
       return res.status(400).json({ message: 'amount_paid must be greater than 0' });
     }
 
-    const employee = await Employee.findById(employeeId).select('_id name active');
+    const employee = await Employee.findById(employeeId).select('_id name gender active');
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
     const paymentDate = new Date(payment_date);

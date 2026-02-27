@@ -38,6 +38,7 @@ describe('Payroll routes', () => {
       .send({
         name: 'Alice',
         phone: '555-0001',
+        gender: 'female',
         base_salary: 30000,
         payroll_group: 'cut',
         has_20_deduction: true,
@@ -49,6 +50,7 @@ describe('Payroll routes', () => {
     expect(res.body.message).toBe('Employee created');
     expect(Employee.create).toHaveBeenCalledWith(expect.objectContaining({
       name: 'Alice',
+      gender: 'female',
       payroll_group: 'cut',
       has_20_deduction: true
     }));

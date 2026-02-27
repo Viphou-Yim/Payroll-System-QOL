@@ -425,19 +425,22 @@
     return {
       search: ($('empListSearch')?.value || '').toLowerCase().trim(),
       phone: ($('empListPhone')?.value || '').toLowerCase().trim(),
-      group: $('empListGroup')?.value || ''
+      group: $('empListGroup')?.value || '',
+      gender: $('empListGender')?.value || ''
     };
   }
 
   function filterEmployees(employees) {
-    const { search, phone, group } = getEmployeeFilters();
+    const { search, phone, group, gender } = getEmployeeFilters();
     return (employees || []).filter((employee) => {
       const nameVal = (employee.name || '').toLowerCase();
       const phoneVal = (employee.phone || '').toLowerCase();
       const groupVal = employee.payroll_group || '';
+      const genderVal = (employee.gender || '').toLowerCase();
       if (search && !nameVal.includes(search)) return false;
       if (phone && !phoneVal.includes(phone)) return false;
       if (group && groupVal !== group) return false;
+      if (gender && genderVal !== gender) return false;
       return true;
     }).sort((a, b) => (a.name || '').localeCompare((b.name || '')));
   }
@@ -471,6 +474,7 @@
     return [
       `Name: ${employee?.name || '--'}`,
       `Phone: ${employee?.phone || '--'}`,
+      `Gender: ${employee?.gender || '--'}`,
       `Employee ID: ${employee?._id || '--'}`,
       `Payroll group: ${employee?.payroll_group || '--'}`,
       `Base salary: ${formatMoney(employee?.base_salary || 0)}`,
@@ -504,6 +508,7 @@
     $('employeeEditId').value = employee._id || '';
     $('employeeEditName').value = employee.name || '';
     $('employeeEditPhone').value = employee.phone || '';
+    $('employeeEditGender').value = employee.gender || 'male';
     $('employeeEditSalary').value = employee.base_salary ?? 0;
     $('employeeEditGroup').value = employee.payroll_group || 'cut';
     $('employeeEditHas20').checked = !!employee.has_20_deduction;
@@ -590,7 +595,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
+    ['Name', 'Phone', 'Gender', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -602,7 +607,7 @@
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
       const remainingDebt = employeeDebtMap.get(String(employee._id)) || 0;
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.gender || '--'}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
       const activeCell = tr.querySelector('.employee-active-cell');
       const activeCheckbox = document.createElement('input');
       activeCheckbox.type = 'checkbox';
@@ -678,6 +683,7 @@
     const id = $('employeeEditId').value;
     const name = String($('employeeEditName').value || '').trim();
     const phone = String($('employeeEditPhone').value || '').trim();
+    const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
     const base_salary = parseFloat($('employeeEditSalary').value);
     const payroll_group = String($('employeeEditGroup').value || '').trim();
     const has_20_deduction = !!$('employeeEditHas20').checked;
@@ -699,6 +705,10 @@
       if (status) status.textContent = 'Base salary must be a number.';
       return;
     }
+    if (!['male', 'female'].includes(gender)) {
+      if (status) status.textContent = 'Gender must be male or female.';
+      return;
+    }
     if (!['cut', 'no-cut', 'monthly'].includes(payroll_group)) {
       if (status) status.textContent = 'Payroll group must be cut, no-cut, or monthly.';
       return;
@@ -711,6 +721,7 @@
       body: JSON.stringify({
         name,
         phone,
+        gender,
         base_salary,
         payroll_group,
         has_20_deduction,
@@ -779,10 +790,11 @@
     }).join('; ');
   }
   function downloadCsv(filename, rows) { const csv = rows.join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000); }
-  function recordsToCsvRows(records) { const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsText = formatDeductionsText(r.deductions); const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)]; rows.push(row.join(',')); } return rows; }
+  function recordsToCsvRows(records) { const header = ['Employee','Gender','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const gender = r.employee?.gender || ''; const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsText = formatDeductionsText(r.deductions); const row = [escapeCsv(emp), escapeCsv(gender), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)]; rows.push(row.join(',')); } return rows; }
   function recordsToExportRows(records) {
     return (records || []).map((r) => ({
       Employee: r.employee ? r.employee.name : (r.employee || ''),
+      Gender: r.employee?.gender || '',
       EmployeeId: r.employee && r.employee._id ? r.employee._id : (r.employee || ''),
       Month: r.month || '',
       Gross: Number(r.gross_salary || 0),
@@ -812,7 +824,7 @@
       return;
     }
     const rows = recordsToExportRows(records);
-    const headers = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
+    const headers = ['Employee','Gender','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
     const body = rows.map((row) => headers.map((h) => row[h]));
     const doc = new jsPdfLib({ orientation: 'landscape' });
     doc.setFontSize(12);
@@ -870,11 +882,19 @@
     });
   }
 
-  ['empListSearch', 'empListPhone', 'empListGroup'].forEach((id) => {
+  ['empListSearch', 'empListPhone', 'empListGroup', 'empListGender'].forEach((id) => {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', () => renderEmployeesTable(filterEmployees(currentEmployees)));
     el.addEventListener('change', () => renderEmployeesTable(filterEmployees(currentEmployees)));
+  });
+
+  $('clearEmployeesFilters')?.addEventListener('click', () => {
+    if ($('empListSearch')) $('empListSearch').value = '';
+    if ($('empListPhone')) $('empListPhone').value = '';
+    if ($('empListGroup')) $('empListGroup').value = '';
+    if ($('empListGender')) $('empListGender').value = '';
+    renderEmployeesTable(filterEmployees(currentEmployees));
   });
 
   function renderRecordsTable(records) {
@@ -886,13 +906,13 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const h = document.createElement('tr');
-    ['Employee','Month','Gross','Deductions','Net','Actions'].forEach(t => { const th = document.createElement('th'); th.textContent = t; h.appendChild(th); });
+    ['Employee','Gender','Month','Gross','Deductions','Net','Actions'].forEach(t => { const th = document.createElement('th'); th.textContent = t; h.appendChild(th); });
     thead.appendChild(h);
     tbl.appendChild(thead);
     const tbody = document.createElement('tbody');
     records.forEach(rec => {
-      const tr = document.createElement('tr'); const emp = rec.employee ? rec.employee.name : (rec.employee || ''); const viewBtn = `<button class="viewBtn">View</button>`;
-      tr.innerHTML = `<td>${emp}</td><td>${rec.month}</td><td>${rec.gross_salary}</td><td>${rec.total_deductions}</td><td>${rec.net_salary}</td><td>${viewBtn}</td>`;
+      const tr = document.createElement('tr'); const emp = rec.employee ? rec.employee.name : (rec.employee || ''); const gender = rec.employee?.gender || '--'; const viewBtn = `<button class="viewBtn">View</button>`;
+      tr.innerHTML = `<td>${emp}</td><td>${gender}</td><td>${rec.month}</td><td>${rec.gross_salary}</td><td>${rec.total_deductions}</td><td>${rec.net_salary}</td><td>${viewBtn}</td>`;
       tr.querySelector('.viewBtn').addEventListener('click', () => showRecordDetails(rec));
       tbody.appendChild(tr);
     });
@@ -1246,7 +1266,7 @@
     if (slice.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 8;
+      td.colSpan = 9;
       td.textContent = 'No records found.';
       tr.appendChild(td);
       recSumBody.appendChild(tr);
@@ -1255,10 +1275,12 @@
     slice.forEach(r => {
       const tr = document.createElement('tr');
       const empName = r.employee?.name || r.employee || '--';
+      const gender = r.employee?.gender || '--';
       const group = r.employee?.payroll_group || '--';
       tr.innerHTML = `
         <td>${r._id || '--'}</td>
         <td>${empName}</td>
+        <td>${gender}</td>
         <td>${group}</td>
         <td>${r.month || '--'}</td>
         <td>${r.net_salary ?? '--'}</td>
@@ -1335,8 +1357,9 @@
     const body = $('recSummaryViewBody');
     if (body) {
       const emp = record.employee?.name || record.employee || '--';
+      const gender = record.employee?.gender || '--';
       const group = record.employee?.payroll_group || '--';
-      body.textContent = `Payroll ID: ${record._id}\nEmployee: ${emp}\nGroup: ${group}\nMonth: ${record.month}\nGross: ${record.gross_salary}\nTotal deductions: ${record.total_deductions}\nNet: ${record.net_salary}\nBonuses: ${record.bonuses}\nWithheld: ${record.withheld_amount}\nCarryover savings: ${record.carryover_savings}\nCreated: ${formatDate(record.createdAt)}`;
+      body.textContent = `Payroll ID: ${record._id}\nEmployee: ${emp}\nGender: ${gender}\nGroup: ${group}\nMonth: ${record.month}\nGross: ${record.gross_salary}\nTotal deductions: ${record.total_deductions}\nNet: ${record.net_salary}\nBonuses: ${record.bonuses}\nWithheld: ${record.withheld_amount}\nCarryover savings: ${record.carryover_savings}\nCreated: ${formatDate(record.createdAt)}`;
     }
     if (viewModal) viewModal.setAttribute('aria-hidden', 'false');
   }
@@ -2243,6 +2266,7 @@
       const payload = {
         name: document.getElementById('empName').value.trim(),
         phone: document.getElementById('empPhone').value.trim(),
+        gender: String(document.getElementById('empGender')?.value || '').trim().toLowerCase(),
         base_salary: Number(document.getElementById('empBaseSalary').value),
         payroll_group: resolvedPayrollGroup,
         start_date: document.getElementById('empStartDate').value || undefined,
@@ -2252,8 +2276,8 @@
         has_debt_deduction: !!document.getElementById('empHasDebt').checked
       };
 
-      if (!payload.name || !payload.payroll_group || Number.isNaN(payload.base_salary)) {
-        if (msg) msg.textContent = 'Name, payroll group, and base salary are required.';
+      if (!payload.name || !payload.payroll_group || Number.isNaN(payload.base_salary) || !['male', 'female'].includes(payload.gender)) {
+        if (msg) msg.textContent = 'Name, gender, payroll group, and base salary are required.';
         saveBtn.disabled = false;
         return;
       }

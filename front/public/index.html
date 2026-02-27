@@ -175,6 +175,12 @@
             <div>
               <label for="empPhone">Phone</label>
               <input id="empPhone" placeholder="e.g., 0400 123 456" />
+              <label for="empGender" style="margin-top:10px">Gender</label>
+              <select id="empGender" required>
+                <option value="">Select…</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
             </div>
           </div>
 
@@ -255,6 +261,7 @@
         <h2>Employees</h2>
         <div class="form-actions records-actions">
           <button id="loadEmployeesList" type="button">Load Employees</button>
+          <button id="clearEmployeesFilters" type="button" class="secondary">Clear Filters</button>
         </div>
         <div class="form-grid two-col" style="max-width:520px">
           <div>
@@ -274,6 +281,14 @@
               <option value="cut">cut</option>
               <option value="no-cut">no-cut</option>
               <option value="monthly">monthly</option>
+            </select>
+          </div>
+          <div>
+            <label for="empListGender">Gender</label>
+            <select id="empListGender">
+              <option value="">All</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
             </select>
           </div>
         </div>
@@ -318,6 +333,11 @@
             <div>
               <label for="employeeEditPhone">Phone</label>
               <input id="employeeEditPhone" />
+              <label for="employeeEditGender" style="margin-top:10px">Gender</label>
+              <select id="employeeEditGender" required>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
             </div>
           </div>
           <div class="form-grid two-col" style="margin-bottom:0">
@@ -477,6 +497,7 @@
               <tr>
                 <th>Payroll ID</th>
                 <th>Employee</th>
+                <th>Gender</th>
                 <th>Group</th>
                 <th>Month</th>
                 <th>Net</th>
