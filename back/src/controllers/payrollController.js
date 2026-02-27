@@ -56,6 +56,75 @@ function parseDateOnly(value) {
   return parsed;
 }
 
+const EMPLOYEE_ROLES = ['employee', 'worker', 'manager', 'car_driver', 'tuk_tuk_driver'];
+
+function normalizeEmployeeRole(roleValue) {
+  const normalized = String(roleValue || '').trim().toLowerCase();
+  if (!normalized) return 'employee';
+  return EMPLOYEE_ROLES.includes(normalized) ? normalized : '';
+}
+
+function resolvePayCycleDay({ role, payCycleDay }) {
+  const parsed = Number(payCycleDay);
+  if (Number.isFinite(parsed) && (parsed === 1 || parsed === 20)) {
+    return parsed;
+  }
+  return role === 'manager' ? 1 : 20;
+}
+
+function getPayPeriodForMonth(month, payCycleDay) {
+  const [year, monthPart] = String(month).split('-').map(Number);
+  const endDate = new Date(Date.UTC(year, monthPart - 1, payCycleDay));
+  const startDate = new Date(Date.UTC(year, monthPart - 2, payCycleDay));
+  return { startDate, endDate };
+}
+
+async function getAttendanceSummaryForPeriod({ employeeId, month, payCycleDay }) {
+  const { startDate, endDate } = getPayPeriodForMonth(month, payCycleDay);
+  let attendanceRows = [];
+  try {
+    attendanceRows = await Attendance.find({
+      employee: employeeId,
+      start_date: { $lte: endDate },
+      end_date: { $gte: startDate }
+    });
+  } catch (err) {
+    if (err?.name !== 'CastError') throw err;
+    const fallback = await Attendance.findOne({ employee: employeeId, month });
+    attendanceRows = fallback ? [fallback] : [];
+  }
+
+  let daysWorked = 0;
+  let daysAbsent = 0;
+  for (const attendance of attendanceRows) {
+    const rangeStart = attendance?.start_date ? new Date(attendance.start_date) : null;
+    const rangeEnd = attendance?.end_date ? new Date(attendance.end_date) : null;
+    if (!rangeStart || !rangeEnd) {
+      daysWorked += Number(attendance?.days_worked) || 0;
+      daysAbsent += Number(attendance?.days_absent) || 0;
+      continue;
+    }
+
+    const overlapStart = rangeStart > startDate ? rangeStart : startDate;
+    const overlapEnd = rangeEnd < endDate ? rangeEnd : endDate;
+    if (overlapEnd < overlapStart) continue;
+
+    const recordDays = Math.max(1, Math.floor((rangeEnd - rangeStart) / 86400000) + 1);
+    const overlapDays = Math.max(0, Math.floor((overlapEnd - overlapStart) / 86400000) + 1);
+    const overlapRatio = overlapDays / recordDays;
+
+    daysWorked += (Number(attendance.days_worked) || 0) * overlapRatio;
+    daysAbsent += (Number(attendance.days_absent) || 0) * overlapRatio;
+  }
+
+  return {
+    daysWorked: Math.round(daysWorked * 10) / 10,
+    daysAbsent: Math.round(daysAbsent * 10) / 10,
+    periodStart: startDate,
+    periodEnd: endDate
+  };
+}
+
 function splitDateRangeByMonth(startDate, endDate) {
   const chunks = [];
   let cursor = new Date(startDate.getTime());
@@ -197,8 +266,10 @@ async function generatePayrollForMonth(req, res) {
         await PayrollRecord.deleteMany({ employee: emp._id, month });
       }
 
-      const attendance = await Attendance.findOne({ employee: emp._id, month });
-      const daysWorked = attendance ? attendance.days_worked : 0;
+      const payCycleDay = resolvePayCycleDay({ role: emp.role, payCycleDay: emp.pay_cycle_day });
+      const attendanceSummary = await getAttendanceSummaryForPeriod({ employeeId: emp._id, month, payCycleDay });
+      const daysWorked = attendanceSummary.daysWorked;
+      const attendance = { days_absent: attendanceSummary.daysAbsent };
       const storedBonuses = await Bonuses.find({ employee: emp._id, month });
       const bonuses = applyZeroAbsenceBonus({ attendance, bonuses: storedBonuses, options: zeroAbsenceBonusOptions });
 
@@ -239,6 +310,9 @@ async function generatePayrollForMonth(req, res) {
       const payrollRecord = await PayrollRecord.create({
         employee: emp._id,
         month,
+        pay_cycle_day: payCycleDay,
+        pay_period_start: attendanceSummary.periodStart,
+        pay_period_end: attendanceSummary.periodEnd,
         gross_salary: calc.gross,
         total_deductions: calc.totalDeductions,
         bonuses: calc.totalBonuses ?? 0,
@@ -311,10 +385,12 @@ async function generatePayrollForEmployee(req, res) {
     // Use the employee's payroll_group to decide whether cut rules apply (default to 'cut')
     const empPayrollGroup = emp.payroll_group || 'cut';
     const applyCutsForEmployee = empPayrollGroup !== 'no-cut';
-    const attendance = await Attendance.findOne({ employee: emp._id, month });
+    const payCycleDay = resolvePayCycleDay({ role: emp.role, payCycleDay: emp.pay_cycle_day });
+    const attendanceSummary = await getAttendanceSummaryForPeriod({ employeeId: emp._id, month, payCycleDay });
+    const attendance = { days_absent: attendanceSummary.daysAbsent };
     const storedBonuses = await Bonuses.find({ employee: emp._id, month });
     const bonuses = applyZeroAbsenceBonus({ attendance, bonuses: storedBonuses, options: zeroAbsenceBonusOptions });
-    const daysWorked = attendance ? attendance.days_worked : 0;
+    const daysWorked = attendanceSummary.daysWorked;
     const staticDeds = await Deduction.find({ employee: emp._id, month });
     const saving = await Saving.findOne({ employee: emp._id });
     const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
@@ -351,6 +427,9 @@ async function generatePayrollForEmployee(req, res) {
     const payrollRecord = await PayrollRecord.create({
       employee: emp._id,
       month,
+      pay_cycle_day: payCycleDay,
+      pay_period_start: attendanceSummary.periodStart,
+      pay_period_end: attendanceSummary.periodEnd,
       gross_salary: calc.gross,
       total_deductions: calc.totalDeductions,
       bonuses: calc.totalBonuses ?? 0,
@@ -603,7 +682,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender base_salary');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -614,7 +693,7 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone gender active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -633,6 +712,10 @@ async function updateEmployee(req, res) {
       name,
       phone,
       gender,
+      role,
+      worker_tag,
+      meal_mode,
+      pay_cycle_day,
       base_salary,
       payroll_group,
       has_20_deduction,
@@ -644,6 +727,10 @@ async function updateEmployee(req, res) {
     const nextName = name === undefined ? employee.name : String(name || '').trim();
     const nextPhone = phone === undefined ? employee.phone : String(phone || '').trim();
     const nextGender = gender === undefined ? employee.gender : String(gender || '').trim().toLowerCase();
+    const nextRole = role === undefined ? normalizeEmployeeRole(employee.role) : normalizeEmployeeRole(role);
+    const nextWorkerTag = worker_tag === undefined ? (employee.worker_tag || '') : String(worker_tag || '').trim().toLowerCase();
+    const nextMealMode = meal_mode === undefined ? (employee.meal_mode || '') : String(meal_mode || '').trim().toLowerCase();
+    const nextPayCycleDay = resolvePayCycleDay({ role: nextRole, payCycleDay: pay_cycle_day === undefined ? employee.pay_cycle_day : pay_cycle_day });
     const nextGroup = payroll_group === undefined ? employee.payroll_group : String(payroll_group || '').trim();
     const nextBaseSalary = base_salary === undefined ? Number(employee.base_salary) : Number(base_salary);
     const nextHas20 = has_20_deduction === undefined ? !!employee.has_20_deduction : !!has_20_deduction;
@@ -654,6 +741,13 @@ async function updateEmployee(req, res) {
     if (Number.isNaN(nextBaseSalary)) return res.status(400).json({ message: 'base_salary must be a number' });
     if (nextGender && !['male', 'female'].includes(nextGender)) {
       return res.status(400).json({ message: 'gender must be one of: male, female' });
+    }
+    if (!nextRole) return res.status(400).json({ message: `role must be one of: ${EMPLOYEE_ROLES.join(', ')}` });
+    if (nextRole === 'worker' && nextWorkerTag && nextWorkerTag !== 'worker') {
+      return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
+    }
+    if (nextRole === 'worker' && nextMealMode && !['eat_in', 'eat_out'].includes(nextMealMode)) {
+      return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
     }
 
     const allowed = ['cut', 'no-cut', 'monthly'];
@@ -681,6 +775,10 @@ async function updateEmployee(req, res) {
       name: nextName,
       phone: nextPhone,
       gender: nextGender || undefined,
+      role: nextRole,
+      worker_tag: nextRole === 'worker' ? (nextWorkerTag || 'worker') : undefined,
+      meal_mode: nextRole === 'worker' ? (nextMealMode || undefined) : undefined,
+      pay_cycle_day: nextPayCycleDay,
       base_salary: nextBaseSalary,
       payroll_group: nextGroup,
       has_20_deduction: nextHas20,
@@ -693,7 +791,7 @@ async function updateEmployee(req, res) {
     }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
-      .select('_id name payroll_group phone gender active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+      .select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
 
     return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
@@ -715,7 +813,7 @@ async function updateEmployeeStatus(req, res) {
       id,
       { active },
       { new: true, runValidators: true }
-    ).select('_id name payroll_group phone gender active');
+    ).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
@@ -816,6 +914,10 @@ async function createEmployee(req, res) {
       name,
       phone = '',
       gender,
+      role = 'employee',
+      worker_tag,
+      meal_mode,
+      pay_cycle_day,
       base_salary,
       payroll_group,
       has_20_deduction = false,
@@ -839,6 +941,18 @@ async function createEmployee(req, res) {
     if (normalizedGender && !['male', 'female'].includes(normalizedGender)) {
       return res.status(400).json({ message: 'gender must be one of: male, female' });
     }
+    const normalizedRole = normalizeEmployeeRole(role);
+    if (!normalizedRole) return res.status(400).json({ message: `role must be one of: ${EMPLOYEE_ROLES.join(', ')}` });
+
+    const normalizedWorkerTag = String(worker_tag || '').trim().toLowerCase();
+    const normalizedMealMode = String(meal_mode || '').trim().toLowerCase();
+    if (normalizedRole === 'worker' && normalizedWorkerTag && normalizedWorkerTag !== 'worker') {
+      return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
+    }
+    if (normalizedRole === 'worker' && normalizedMealMode && !['eat_in', 'eat_out'].includes(normalizedMealMode)) {
+      return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
+    }
+    const resolvedPayCycleDay = resolvePayCycleDay({ role: normalizedRole, payCycleDay: pay_cycle_day });
 
     const has20 = !!has_20_deduction;
     const has10dayHolding = !!has_10day_holding;
@@ -864,6 +978,10 @@ async function createEmployee(req, res) {
       name: name.trim(),
       phone: phone.trim(),
       gender: normalizedGender || undefined,
+      role: normalizedRole,
+      worker_tag: normalizedRole === 'worker' ? (normalizedWorkerTag || 'worker') : undefined,
+      meal_mode: normalizedRole === 'worker' ? (normalizedMealMode || undefined) : undefined,
+      pay_cycle_day: resolvedPayCycleDay,
       base_salary: Number(base_salary),
       payroll_group: pg,
       has_20_deduction: has20,

@@ -475,6 +475,10 @@
       `Name: ${employee?.name || '--'}`,
       `Phone: ${employee?.phone || '--'}`,
       `Gender: ${employee?.gender || '--'}`,
+      `Role: ${employee?.role || '--'}`,
+      `Worker tag: ${employee?.worker_tag || '--'}`,
+      `Meal mode: ${employee?.meal_mode || '--'}`,
+      `Pay cycle day: ${employee?.pay_cycle_day || '--'}`,
       `Employee ID: ${employee?._id || '--'}`,
       `Payroll group: ${employee?.payroll_group || '--'}`,
       `Base salary: ${formatMoney(employee?.base_salary || 0)}`,
@@ -509,6 +513,11 @@
     $('employeeEditName').value = employee.name || '';
     $('employeeEditPhone').value = employee.phone || '';
     $('employeeEditGender').value = employee.gender || 'male';
+    $('employeeEditRole').value = employee.role || 'employee';
+    $('employeeEditWorkerTag').value = employee.worker_tag || '';
+    $('employeeEditMealMode').value = employee.meal_mode || '';
+    $('employeeEditPayCycleDay').value = String(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
+    $('employeeEditRole').dispatchEvent(new Event('change'));
     $('employeeEditSalary').value = employee.base_salary ?? 0;
     $('employeeEditGroup').value = employee.payroll_group || 'cut';
     $('employeeEditHas20').checked = !!employee.has_20_deduction;
@@ -595,7 +604,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Gender', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
+    ['Name', 'Phone', 'Gender', 'Role', 'Pay Day', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -607,7 +616,7 @@
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
       const remainingDebt = employeeDebtMap.get(String(employee._id)) || 0;
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.gender || '--'}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.gender || '--'}</td><td>${employee.role || '--'}</td><td>${employee.pay_cycle_day || '--'}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
       const activeCell = tr.querySelector('.employee-active-cell');
       const activeCheckbox = document.createElement('input');
       activeCheckbox.type = 'checkbox';
@@ -675,6 +684,26 @@
       if (e.target?.getAttribute('data-close') === 'true') closeEmployeeEdit();
     });
   }
+
+  $('employeeEditRole')?.addEventListener('change', () => {
+    const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
+    const isWorker = role === 'worker';
+    const workerTagEl = $('employeeEditWorkerTag');
+    const mealModeEl = $('employeeEditMealMode');
+    const payCycleEl = $('employeeEditPayCycleDay');
+    if (workerTagEl) {
+      workerTagEl.disabled = !isWorker;
+      if (!isWorker) workerTagEl.value = '';
+      if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
+    }
+    if (mealModeEl) {
+      mealModeEl.disabled = !isWorker;
+      if (!isWorker) mealModeEl.value = '';
+    }
+    if (payCycleEl) {
+      payCycleEl.value = role === 'manager' ? '1' : '20';
+    }
+  });
   $('employeeEditClose')?.addEventListener('click', closeEmployeeEdit);
   $('employeeEditCancel')?.addEventListener('click', closeEmployeeEdit);
 
@@ -684,6 +713,10 @@
     const name = String($('employeeEditName').value || '').trim();
     const phone = String($('employeeEditPhone').value || '').trim();
     const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
+    const role = String($('employeeEditRole').value || '').trim().toLowerCase();
+    const worker_tag = String($('employeeEditWorkerTag').value || '').trim().toLowerCase();
+    const meal_mode = String($('employeeEditMealMode').value || '').trim().toLowerCase();
+    const pay_cycle_day = Number($('employeeEditPayCycleDay').value || '20');
     const base_salary = parseFloat($('employeeEditSalary').value);
     const payroll_group = String($('employeeEditGroup').value || '').trim();
     const has_20_deduction = !!$('employeeEditHas20').checked;
@@ -709,6 +742,14 @@
       if (status) status.textContent = 'Gender must be male or female.';
       return;
     }
+    if (!['employee', 'worker', 'manager', 'car_driver', 'tuk_tuk_driver'].includes(role)) {
+      if (status) status.textContent = 'Role is invalid.';
+      return;
+    }
+    if (![1, 20].includes(pay_cycle_day)) {
+      if (status) status.textContent = 'Pay cycle day must be 1 or 20.';
+      return;
+    }
     if (!['cut', 'no-cut', 'monthly'].includes(payroll_group)) {
       if (status) status.textContent = 'Payroll group must be cut, no-cut, or monthly.';
       return;
@@ -722,6 +763,10 @@
         name,
         phone,
         gender,
+        role,
+        worker_tag,
+        meal_mode,
+        pay_cycle_day,
         base_salary,
         payroll_group,
         has_20_deduction,
@@ -2108,6 +2153,31 @@
     const has20El = document.getElementById('empHas20');
     const has10HoldEl = document.getElementById('empHas10Hold');
     const hasDebtEl = document.getElementById('empHasDebt');
+    const roleEl = document.getElementById('empRole');
+    const workerTagEl = document.getElementById('empWorkerTag');
+    const mealModeEl = document.getElementById('empMealMode');
+    const payCycleDayEl = document.getElementById('empPayCycleDay');
+
+    function syncRoleDependentFields() {
+      const role = String(roleEl?.value || 'employee').trim().toLowerCase();
+      const isWorker = role === 'worker';
+      const isManager = role === 'manager';
+
+      if (workerTagEl) {
+        workerTagEl.disabled = !isWorker;
+        if (!isWorker) workerTagEl.value = '';
+        if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
+      }
+
+      if (mealModeEl) {
+        mealModeEl.disabled = !isWorker;
+        if (!isWorker) mealModeEl.value = '';
+      }
+
+      if (payCycleDayEl) {
+        payCycleDayEl.value = isManager ? '1' : '20';
+      }
+    }
 
     function getGroupAvailability() {
       const has20 = !!(has20El && has20El.checked);
@@ -2219,6 +2289,7 @@
       if (active) active.checked = true;
       if (allowGroupMix) allowGroupMix.checked = false;
       updateGroupUiFromConditions();
+      syncRoleDependentFields();
       if (msg) msg.textContent = '';
     };
 
@@ -2228,6 +2299,10 @@
       allowGroupMix.addEventListener('change', () => {
         updateGroupUiFromConditions();
       });
+    }
+
+    if (roleEl) {
+      roleEl.addEventListener('change', syncRoleDependentFields);
     }
 
     [has20El, has10HoldEl, hasDebtEl].forEach((el) => {
@@ -2254,6 +2329,7 @@
     }
 
     updateGroupUiFromConditions();
+    syncRoleDependentFields();
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -2267,6 +2343,10 @@
         name: document.getElementById('empName').value.trim(),
         phone: document.getElementById('empPhone').value.trim(),
         gender: String(document.getElementById('empGender')?.value || '').trim().toLowerCase(),
+        role: String(document.getElementById('empRole')?.value || '').trim().toLowerCase(),
+        worker_tag: String(document.getElementById('empWorkerTag')?.value || '').trim().toLowerCase(),
+        meal_mode: String(document.getElementById('empMealMode')?.value || '').trim().toLowerCase(),
+        pay_cycle_day: Number(document.getElementById('empPayCycleDay')?.value || '20'),
         base_salary: Number(document.getElementById('empBaseSalary').value),
         payroll_group: resolvedPayrollGroup,
         start_date: document.getElementById('empStartDate').value || undefined,
@@ -2278,6 +2358,18 @@
 
       if (!payload.name || !payload.payroll_group || Number.isNaN(payload.base_salary) || !['male', 'female'].includes(payload.gender)) {
         if (msg) msg.textContent = 'Name, gender, payroll group, and base salary are required.';
+        saveBtn.disabled = false;
+        return;
+      }
+
+      if (!['employee', 'worker', 'manager', 'car_driver', 'tuk_tuk_driver'].includes(payload.role)) {
+        if (msg) msg.textContent = 'Role is required.';
+        saveBtn.disabled = false;
+        return;
+      }
+
+      if (![1, 20].includes(payload.pay_cycle_day)) {
+        if (msg) msg.textContent = 'Pay cycle day must be 1 or 20.';
         saveBtn.disabled = false;
         return;
       }

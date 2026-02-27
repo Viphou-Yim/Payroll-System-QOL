@@ -16,7 +16,10 @@ const PayrollRecordSchema = new mongoose.Schema({
   net_salary: { type: Number, required: true },
   deductions: [{ type: mongoose.Schema.Types.Mixed }],
   withheld_amount: { type: Number, default: 0 },
-  carryover_savings: { type: Number, default: 0 }
+  carryover_savings: { type: Number, default: 0 },
+  pay_cycle_day: { type: Number, enum: [1, 20], default: 20 },
+  pay_period_start: { type: Date },
+  pay_period_end: { type: Date }
 }, { timestamps: true });
 
 module.exports = mongoose.model('PayrollRecord', PayrollRecordSchema);

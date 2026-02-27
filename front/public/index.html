@@ -191,6 +191,32 @@
               <div class="field-help">Use yearly/monthly base based on your payroll rules.</div>
             </div>
             <div>
+              <label for="empRole">Role</label>
+              <select id="empRole" required>
+                <option value="employee">Employee</option>
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="car_driver">Car driver</option>
+                <option value="tuk_tuk_driver">Tuk tuk driver</option>
+              </select>
+              <label for="empWorkerTag" style="margin-top:10px">Worker tag</label>
+              <select id="empWorkerTag">
+                <option value="">None</option>
+                <option value="worker">Worker</option>
+              </select>
+              <label for="empMealMode" style="margin-top:10px">Meal mode</label>
+              <select id="empMealMode">
+                <option value="">None</option>
+                <option value="eat_in">Eat in</option>
+                <option value="eat_out">Eat out</option>
+              </select>
+              <label for="empPayCycleDay" style="margin-top:10px">Pay cycle day</label>
+              <select id="empPayCycleDay" required>
+                <option value="20">20 (20→20)</option>
+                <option value="1">1 (01→01)</option>
+              </select>
+            </div>
+            <div>
               <label for="empPayrollGroup" class="group-label-inline">
                 <span>Payroll group</span>
                 <span
@@ -344,6 +370,32 @@
             <div>
               <label for="employeeEditSalary">Base salary</label>
               <input id="employeeEditSalary" type="number" min="0" step="0.01" required />
+            </div>
+            <div>
+              <label for="employeeEditRole">Role</label>
+              <select id="employeeEditRole" required>
+                <option value="employee">Employee</option>
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="car_driver">Car driver</option>
+                <option value="tuk_tuk_driver">Tuk tuk driver</option>
+              </select>
+              <label for="employeeEditWorkerTag" style="margin-top:10px">Worker tag</label>
+              <select id="employeeEditWorkerTag">
+                <option value="">None</option>
+                <option value="worker">Worker</option>
+              </select>
+              <label for="employeeEditMealMode" style="margin-top:10px">Meal mode</label>
+              <select id="employeeEditMealMode">
+                <option value="">None</option>
+                <option value="eat_in">Eat in</option>
+                <option value="eat_out">Eat out</option>
+              </select>
+              <label for="employeeEditPayCycleDay" style="margin-top:10px">Pay cycle day</label>
+              <select id="employeeEditPayCycleDay" required>
+                <option value="20">20 (20→20)</option>
+                <option value="1">1 (01→01)</option>
+              </select>
             </div>
             <div>
               <label for="employeeEditGroup">Payroll group</label>
