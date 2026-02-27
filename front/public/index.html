@@ -50,6 +50,7 @@
         <div class="nav-menu" role="menu">
           <a href="#records" class="tab" id="tab-records" role="menuitem">Payroll Records</a>
           <a href="#records-summary" class="tab" id="tab-records-summary" role="menuitem">Records Summary</a>
+          <a href="#get-together-history" class="tab" id="tab-get-together-history" role="menuitem">Get Together</a>
           <a href="#deductions" class="tab" id="tab-deductions" role="menuitem">Deductions</a>
           <a href="#savings" class="tab" id="tab-savings" role="menuitem">Savings</a>
         </div>
@@ -566,6 +567,26 @@
           <span id="recSumPage">Page 1</span>
           <button id="recSumNext" type="button" class="secondary">Next</button>
         </div>
+      </div>
+    </section>
+
+    <section id="sec-get-together-history" class="page" data-route="get-together-history" style="display:none">
+      <div class="section">
+        <h2>Get Together Payout History</h2>
+        <div class="section-desc">Track payout events, remarks, and totals.</div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="gtMonth">Month</label>
+            <input id="gtMonth" type="month" />
+          </div>
+          <div class="form-actions" style="align-items:flex-end;margin:0">
+            <button id="loadGtHistory" type="button">Load Payouts</button>
+            <button id="exportGtHistoryCsv" type="button" class="secondary">Export CSV</button>
+            <span id="gtHistoryStatus" class="status-badge" style="display:none"></span>
+          </div>
+        </div>
+        <div id="gtHistoryTotals" class="field-help">No data loaded.</div>
+        <div id="gtHistoryList"></div>
       </div>
     </section>
 

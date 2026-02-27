@@ -18,6 +18,7 @@ const EmployeeSchema = new mongoose.Schema({
   worker_tag: { type: String, enum: ['worker'], default: undefined },
   meal_mode: { type: String, enum: ['eat_in', 'eat_out'], default: undefined },
   pay_cycle_day: { type: Number, enum: [1, 20], default: 20 },
+  get_together_balance: { type: Number, default: 0 },
   base_salary: { type: Number, required: true },
   payroll_group: { type: String, required: true }, //"cut", "no-cut", "monthly"
   has_20_deduction: { type: Boolean, default: false },

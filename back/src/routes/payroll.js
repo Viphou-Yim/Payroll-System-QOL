@@ -46,6 +46,7 @@ router.get('/employees/all', sessionAuth.requireAdmin, controller.listAllEmploye
 router.post('/employees', sessionAuth.requireAdmin, controller.createEmployee);
 router.patch('/employees/:id', sessionAuth.requireAdmin, controller.updateEmployee);
 router.patch('/employees/:id/status', sessionAuth.requireAdmin, controller.updateEmployeeStatus);
+router.post('/employees/:id/get-together/payout', sessionAuth.requireAdmin, controller.payoutGetTogetherBalance);
 router.delete('/employees/:id', sessionAuth.requireAdmin, controller.deleteEmployee);
 
 // Deductions - allow creating deductions including `monthly_debt`
@@ -62,6 +63,7 @@ router.get('/debts/summary', sessionAuth.requireAdmin, controller.getDebtSummary
 router.get('/savings', controller.getSavings);
 router.post('/savings/:employeeId', controller.updateSaving);
 router.post('/savings/payout', sessionAuth.requireAdmin, controller.payoutSavingsForFestival);
+router.get('/get-together/payouts', sessionAuth.requireAdmin, controller.listGetTogetherPayouts);
 
 // Scheduler endpoints (uses persisted scheduler)
 router.post('/schedule/start', scheduleStartValidator, controller.startMonthlyScheduler);

@@ -479,6 +479,7 @@
       `Worker tag: ${employee?.worker_tag || '--'}`,
       `Meal mode: ${employee?.meal_mode || '--'}`,
       `Pay cycle day: ${employee?.pay_cycle_day || '--'}`,
+      `Get together balance: ${formatMoney(employee?.get_together_balance || 0)}`,
       `Employee ID: ${employee?._id || '--'}`,
       `Payroll group: ${employee?.payroll_group || '--'}`,
       `Base salary: ${formatMoney(employee?.base_salary || 0)}`,
@@ -585,6 +586,38 @@
     renderEmployeesTable(filterEmployees(currentEmployees));
   }
 
+  async function payoutGetTogetherBalance(employeeId, confirmEl, remarkEl, buttonEl) {
+    if (!employeeId || !confirmEl || !remarkEl || !buttonEl) return;
+    if (!confirmEl.checked) {
+      showToast('Tick confirm payout first');
+      return;
+    }
+    const remark = String(remarkEl.value || '').trim();
+    if (!remark) {
+      showToast('Enter a remark for payout');
+      return;
+    }
+
+    buttonEl.disabled = true;
+    const r = await fetchJson(`/api/payroll/employees/${employeeId}/get-together/payout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirmed: true, remark })
+    });
+    buttonEl.disabled = false;
+
+    if (r.status !== 200) {
+      showToast(r.body?.message || 'Payout failed');
+      return;
+    }
+
+    showToast('Get together payout completed');
+    confirmEl.checked = false;
+    remarkEl.value = '';
+    await loadEmployeesForList();
+    await loadEmployees();
+  }
+
   function renderEmployeesTable(employees) {
     const container = $('employeesList');
     const statusEl = $('employeesListStatus');
@@ -604,7 +637,7 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const header = document.createElement('tr');
-    ['Name', 'Phone', 'Gender', 'Role', 'Pay Day', 'Payroll Group', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
+    ['Name', 'Phone', 'Gender', 'Role', 'Pay Day', 'Payroll Group', 'Get Together', 'Remaining Debt', '$20', '10-Day Holding', 'Active', 'Employee ID', 'Actions'].forEach((title) => {
       const th = document.createElement('th');
       th.textContent = title;
       header.appendChild(th);
@@ -616,7 +649,7 @@
     employees.forEach((employee) => {
       const tr = document.createElement('tr');
       const remainingDebt = employeeDebtMap.get(String(employee._id)) || 0;
-      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.gender || '--'}</td><td>${employee.role || '--'}</td><td>${employee.pay_cycle_day || '--'}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
+      tr.innerHTML = `<td>${employee.name || ''}</td><td>${employee.phone || ''}</td><td>${employee.gender || '--'}</td><td>${employee.role || '--'}</td><td>${employee.pay_cycle_day || '--'}</td><td>${employee.payroll_group || ''}</td><td>${formatMoney(employee.get_together_balance || 0)}</td><td>${formatMoney(remainingDebt)}</td><td>${employee.has_20_deduction ? 'Yes' : 'No'}</td><td>${employee.has_10day_holding ? 'Yes' : 'No'}</td><td class="employee-active-cell"></td><td>${employee._id || ''}</td><td class="employee-actions-cell"></td>`;
       const activeCell = tr.querySelector('.employee-active-cell');
       const activeCheckbox = document.createElement('input');
       activeCheckbox.type = 'checkbox';
@@ -652,9 +685,39 @@
         deleteEmployee(employee);
       });
 
+      const payoutWrap = document.createElement('div');
+      payoutWrap.style.marginTop = '8px';
+      payoutWrap.style.display = 'flex';
+      payoutWrap.style.flexDirection = 'column';
+      payoutWrap.style.gap = '6px';
+
+      const payoutConfirm = document.createElement('label');
+      payoutConfirm.style.display = 'flex';
+      payoutConfirm.style.alignItems = 'center';
+      payoutConfirm.style.gap = '6px';
+      payoutConfirm.style.margin = '0';
+      payoutConfirm.innerHTML = '<input type="checkbox" /> Confirm payout';
+      const payoutCheckbox = payoutConfirm.querySelector('input');
+
+      const payoutRemark = document.createElement('input');
+      payoutRemark.type = 'text';
+      payoutRemark.placeholder = 'Remark';
+
+      const payoutBtn = document.createElement('button');
+      payoutBtn.type = 'button';
+      payoutBtn.className = 'secondary';
+      payoutBtn.textContent = 'Payout $20 Pool';
+      payoutBtn.addEventListener('click', () => {
+        payoutGetTogetherBalance(employee._id, payoutCheckbox, payoutRemark, payoutBtn);
+      });
+
       actionsCell.appendChild(viewBtn);
       actionsCell.appendChild(editBtn);
       actionsCell.appendChild(deleteBtn);
+      payoutWrap.appendChild(payoutConfirm);
+      payoutWrap.appendChild(payoutRemark);
+      payoutWrap.appendChild(payoutBtn);
+      actionsCell.appendChild(payoutWrap);
 
       tbody.appendChild(tr);
     });
@@ -1107,6 +1170,7 @@
     if (route === 'attendance') { loadEmployees(); }
     if (route === 'records') { renderRecords(); }
     if (route === 'records-summary') { loadRecordsSummary(); }
+    if (route === 'get-together-history') { loadGetTogetherHistory(); }
     if (route === 'employees') { loadEmployeesForList(); }
     if (route === 'run') { loadEmployees(); }
     if (route === 'deductions') { loadDeductions(); loadEmployees(); }
@@ -1291,6 +1355,7 @@
 
   // Records summary
   const summaryState = { records: [], page: 1, pageSize: 8 };
+  let currentGetTogetherHistoryRows = [];
   const recSumBody = $('recSummaryBody');
   const recSumStatus = $('recSumStatus');
   let currentSummaryRecord = null;
@@ -1379,6 +1444,112 @@
     renderSummaryTable();
     if (recSumStatus) recSumStatus.style.display = 'none';
   }
+
+  async function loadGetTogetherHistory() {
+    const status = $('gtHistoryStatus');
+    const totals = $('gtHistoryTotals');
+    const listEl = $('gtHistoryList');
+    const month = $('gtMonth')?.value || '';
+
+    if (status) {
+      status.style.display = '';
+      status.textContent = 'Loading';
+    }
+
+    const query = month ? `?month=${encodeURIComponent(month)}` : '';
+    const r = await fetchJson(`/api/payroll/get-together/payouts${query}`);
+    if (r.status !== 200) {
+      if (listEl) listEl.textContent = `Error: ${r.body?.message || r.status}`;
+      if (totals) totals.textContent = 'Unable to load totals.';
+      if (status) status.textContent = 'Error';
+      return;
+    }
+
+    const rows = Array.isArray(r.body?.data) ? r.body.data : [];
+    currentGetTogetherHistoryRows = rows;
+    const payoutCount = Number(r.body?.totals?.payout_count) || 0;
+    const totalAmount = Number(r.body?.totals?.total_amount) || 0;
+    if (totals) totals.textContent = `${payoutCount} payout${payoutCount === 1 ? '' : 's'} • Total ${formatMoney(totalAmount)}`;
+
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    if (!rows.length) {
+      listEl.textContent = 'No get together payouts found.';
+      if (status) status.style.display = 'none';
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    const tbl = document.createElement('table');
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    ['Date', 'Employee', 'Role', 'Gender', 'Amount', 'Remark'].forEach((title) => {
+      const th = document.createElement('th');
+      th.textContent = title;
+      headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    tbl.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+    rows.forEach((row) => {
+      const tr = document.createElement('tr');
+      const employeeName = row.employee?.name || '--';
+      const role = row.employee?.role || '--';
+      const gender = row.employee?.gender || '--';
+      const created = row.createdAt ? formatDate(row.createdAt) : '--';
+      const remark = String(row.reason || '')
+        .replace(/^Get together payout:\s*/i, '')
+        .replace(/^Get together payout$/i, '') || '--';
+      tr.innerHTML = `<td>${created}</td><td>${employeeName}</td><td>${role}</td><td>${gender}</td><td>${formatMoney(row.amount || 0)}</td><td>${remark}</td>`;
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+    wrap.appendChild(tbl);
+    listEl.appendChild(wrap);
+
+    if (status) status.style.display = 'none';
+  }
+
+  $('loadGtHistory')?.addEventListener('click', loadGetTogetherHistory);
+  $('gtMonth')?.addEventListener('change', loadGetTogetherHistory);
+
+  function getTogetherHistoryToCsvRows(rows) {
+    const header = ['Date', 'Employee', 'Role', 'Gender', 'Amount', 'Remark', 'Month'];
+    const lines = [header.join(',')];
+    (rows || []).forEach((row) => {
+      const created = row.createdAt ? formatDate(row.createdAt) : '--';
+      const employeeName = row.employee?.name || '--';
+      const role = row.employee?.role || '--';
+      const gender = row.employee?.gender || '--';
+      const amount = Number(row.amount || 0);
+      const remark = String(row.reason || '')
+        .replace(/^Get together payout:\s*/i, '')
+        .replace(/^Get together payout$/i, '');
+      const cells = [
+        escapeCsv(created),
+        escapeCsv(employeeName),
+        escapeCsv(role),
+        escapeCsv(gender),
+        escapeCsv(amount),
+        escapeCsv(remark),
+        escapeCsv(row.month || '')
+      ];
+      lines.push(cells.join(','));
+    });
+    return lines;
+  }
+
+  $('exportGtHistoryCsv')?.addEventListener('click', () => {
+    if (!currentGetTogetherHistoryRows.length) {
+      showToast('No payout history loaded');
+      return;
+    }
+    const month = $('gtMonth')?.value || 'all';
+    const rows = getTogetherHistoryToCsvRows(currentGetTogetherHistoryRows);
+    downloadCsv(`get_together_payout_history_${month}.csv`, rows);
+  });
 
   if ($('loadSummary')) $('loadSummary').addEventListener('click', loadRecordsSummary);
   if ($('recSumPrev')) $('recSumPrev').addEventListener('click', () => {

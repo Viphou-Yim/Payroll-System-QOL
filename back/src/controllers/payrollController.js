@@ -30,6 +30,11 @@ const ZERO_ABSENCE_BONUS_DEFAULT_AMOUNT = parseFloat(process.env.ZERO_ABSENCE_BO
 // Main function: displays payroll for a month for a specific payroll group
 const Idempotency = require('../models/Idempotency');
 
+function round(value, decimals = 2) {
+  const factor = Math.pow(10, decimals);
+  return Math.round((Number(value) || 0) * factor) / factor;
+}
+
 function isValidMonth(month) {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
 }
@@ -225,6 +230,12 @@ function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
   };
 }
 
+function getProfile20Contribution(calc) {
+  const applied = Array.isArray(calc?.deductionsApplied) ? calc.deductionsApplied : [];
+  const row = applied.find((entry) => entry?.type === 'profile_20_flat');
+  return Number(row?.amount) || 0;
+}
+
 async function generatePayrollForMonth(req, res) {
   try {
     const { month, payroll_group, force = false } = req.body;
@@ -263,6 +274,11 @@ async function generatePayrollForMonth(req, res) {
           await savingRec.save();
         }
         await Deduction.deleteMany({ employee: emp._id, month, type: 'hold' });
+        const priorContribution = Number(existing.get_together_contribution) || 0;
+        if (priorContribution > 0) {
+          emp.get_together_balance = Math.max(0, (Number(emp.get_together_balance) || 0) - priorContribution);
+          await emp.save();
+        }
         await PayrollRecord.deleteMany({ employee: emp._id, month });
       }
 
@@ -307,9 +323,16 @@ async function generatePayrollForMonth(req, res) {
         await Deduction.create({ employee: emp._id, type: 'hold', amount: calc.withheld, reason: `${CUT_GROUP_10DAY_HOLDING_DAYS} day holding`, month });
       }
 
+      const getTogetherContribution = getProfile20Contribution(calc);
+      if (getTogetherContribution > 0) {
+        emp.get_together_balance = round((Number(emp.get_together_balance) || 0) + getTogetherContribution, ROUND_DECIMALS);
+        await emp.save();
+      }
+
       const payrollRecord = await PayrollRecord.create({
         employee: emp._id,
         month,
+        get_together_contribution: getTogetherContribution,
         pay_cycle_day: payCycleDay,
         pay_period_start: attendanceSummary.periodStart,
         pay_period_end: attendanceSummary.periodEnd,
@@ -379,6 +402,11 @@ async function generatePayrollForEmployee(req, res) {
         await savingRec.save();
       }
       await Deduction.deleteMany({ employee: emp._id, month, type: 'hold' });
+      const priorContribution = Number(existing.get_together_contribution) || 0;
+      if (priorContribution > 0) {
+        emp.get_together_balance = Math.max(0, (Number(emp.get_together_balance) || 0) - priorContribution);
+        await emp.save();
+      }
       await PayrollRecord.deleteMany({ employee: emp._id, month });
     }
 
@@ -424,9 +452,16 @@ async function generatePayrollForEmployee(req, res) {
       await Deduction.create({ employee: emp._id, type: 'hold', amount: calc.withheld, reason: `${CUT_GROUP_10DAY_HOLDING_DAYS} day holding`, month });
     }
 
+    const getTogetherContribution = getProfile20Contribution(calc);
+    if (getTogetherContribution > 0) {
+      emp.get_together_balance = round((Number(emp.get_together_balance) || 0) + getTogetherContribution, ROUND_DECIMALS);
+      await emp.save();
+    }
+
     const payrollRecord = await PayrollRecord.create({
       employee: emp._id,
       month,
+      get_together_contribution: getTogetherContribution,
       pay_cycle_day: payCycleDay,
       pay_period_start: attendanceSummary.periodStart,
       pay_period_end: attendanceSummary.periodEnd,
@@ -555,6 +590,12 @@ async function deletePayrollRecord(req, res) {
       }
 
       await Deduction.deleteMany({ employee: emp._id, month: record.month, type: 'hold' });
+
+      const priorContribution = Number(record.get_together_contribution) || 0;
+      if (priorContribution > 0) {
+        emp.get_together_balance = Math.max(0, (Number(emp.get_together_balance) || 0) - priorContribution);
+        await emp.save();
+      }
     }
 
     await PayrollRecord.deleteOne({ _id: id });
@@ -639,6 +680,12 @@ async function undoPayrollForMonth(req, res) {
           }
         }
       }
+
+      const priorContribution = Number(r.get_together_contribution) || 0;
+      if (priorContribution > 0) {
+        emp.get_together_balance = Math.max(0, (Number(emp.get_together_balance) || 0) - priorContribution);
+        await emp.save();
+      }
     }
 
     // Delete hold deductions created for this month because '10-day holding' or type 'hold'
@@ -682,7 +729,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day base_salary');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -693,7 +740,7 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -791,7 +838,7 @@ async function updateEmployee(req, res) {
     }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
-      .select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+      .select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
 
     return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
@@ -813,7 +860,7 @@ async function updateEmployeeStatus(req, res) {
       id,
       { active },
       { new: true, runValidators: true }
-    ).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day active');
+    ).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
@@ -857,6 +904,44 @@ async function deleteEmployee(req, res) {
 
     await Employee.findByIdAndDelete(id);
     return res.json({ message: 'Employee deleted', employeeId: id, employeeName: employee.name || '' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+async function payoutGetTogetherBalance(req, res) {
+  try {
+    const { id } = req.params;
+    const { confirmed = false, remark = '' } = req.body || {};
+    if (confirmed !== true) {
+      return res.status(400).json({ message: 'confirmed must be true to trigger payout' });
+    }
+
+    const employee = await Employee.findById(id);
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    const balance = Number(employee.get_together_balance) || 0;
+    if (balance <= 0) {
+      return res.status(400).json({ message: 'No accumulated get-together balance to payout' });
+    }
+
+    const reasonRemark = String(remark || '').trim();
+    const reason = reasonRemark
+      ? `Get together payout: ${reasonRemark}`
+      : 'Get together payout';
+
+    await Bonuses.create({
+      employee: employee._id,
+      amount: balance,
+      reason,
+      month: getCurrentYearMonth()
+    });
+
+    employee.get_together_balance = 0;
+    await employee.save();
+
+    return res.json({ message: 'Get together payout completed', amount: balance, employeeId: String(employee._id) });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -1388,6 +1473,41 @@ async function deleteBonus(req, res) {
   }
 }
 
+async function listGetTogetherPayouts(req, res) {
+  try {
+    const { month } = req.query || {};
+    const query = {
+      reason: { $regex: /^Get together payout/i }
+    };
+    if (month) query.month = String(month);
+
+    const payouts = await Bonuses.find(query)
+      .populate('employee', '_id name gender role')
+      .sort({ createdAt: -1 });
+
+    const data = (Array.isArray(payouts) ? payouts : []).map((row) => ({
+      _id: row._id,
+      employee: row.employee,
+      amount: Number(row.amount) || 0,
+      month: row.month || '',
+      reason: row.reason || '',
+      createdAt: row.createdAt
+    }));
+
+    const totalAmount = data.reduce((sum, row) => sum + (Number(row.amount) || 0), 0);
+    return res.json({
+      data,
+      totals: {
+        payout_count: data.length,
+        total_amount: round(totalAmount, ROUND_DECIMALS)
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 module.exports = {
   generatePayrollForMonth,
   getPayrollRecords,
@@ -1406,6 +1526,7 @@ module.exports = {
   listAllEmployees,
   updateEmployee,
   updateEmployeeStatus,
+  payoutGetTogetherBalance,
   deleteEmployee,
   createEmployee,
   getSavings,
@@ -1421,5 +1542,6 @@ module.exports = {
   updateDeduction,
   deleteDeduction,
   createBonus,
-  deleteBonus
+  deleteBonus,
+  listGetTogetherPayouts
 };
