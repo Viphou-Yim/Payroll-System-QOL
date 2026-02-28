@@ -476,7 +476,6 @@
       `Phone: ${employee?.phone || '--'}`,
       `Gender: ${employee?.gender || '--'}`,
       `Role: ${employee?.role || '--'}`,
-      `Worker tag: ${employee?.worker_tag || '--'}`,
       `Meal mode: ${employee?.meal_mode || '--'}`,
       `Pay cycle day: ${employee?.pay_cycle_day || '--'}`,
       `Get together balance: ${formatMoney(employee?.get_together_balance || 0)}`,
@@ -546,7 +545,6 @@
     $('employeeEditPhone').value = employee.phone || '';
     $('employeeEditGender').value = employee.gender || 'male';
     $('employeeEditRole').value = employee.role || 'employee';
-    $('employeeEditWorkerTag').value = employee.worker_tag || '';
     $('employeeEditMealMode').value = employee.meal_mode || '';
     $('employeeEditPayCycleDay').value = String(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
     $('employeeEditRole').dispatchEvent(new Event('change'));
@@ -800,14 +798,8 @@
   $('employeeEditRole')?.addEventListener('change', () => {
     const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
     const isWorker = role === 'worker';
-    const workerTagEl = $('employeeEditWorkerTag');
     const mealModeEl = $('employeeEditMealMode');
     const payCycleEl = $('employeeEditPayCycleDay');
-    if (workerTagEl) {
-      workerTagEl.disabled = !isWorker;
-      if (!isWorker) workerTagEl.value = '';
-      if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
-    }
     if (mealModeEl) {
       mealModeEl.disabled = !isWorker;
       if (!isWorker) mealModeEl.value = '';
@@ -826,7 +818,6 @@
     const phone = String($('employeeEditPhone').value || '').trim();
     const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
     const role = String($('employeeEditRole').value || '').trim().toLowerCase();
-    const worker_tag = String($('employeeEditWorkerTag').value || '').trim().toLowerCase();
     const meal_mode = String($('employeeEditMealMode').value || '').trim().toLowerCase();
     const pay_cycle_day = Number($('employeeEditPayCycleDay').value || '20');
     const base_salary = parseFloat($('employeeEditSalary').value);
@@ -876,7 +867,6 @@
         phone,
         gender,
         role,
-        worker_tag,
         meal_mode,
         pay_cycle_day,
         base_salary,
@@ -2420,7 +2410,6 @@
     const has10HoldEl = document.getElementById('empHas10Hold');
     const hasDebtEl = document.getElementById('empHasDebt');
     const roleEl = document.getElementById('empRole');
-    const workerTagEl = document.getElementById('empWorkerTag');
     const mealModeEl = document.getElementById('empMealMode');
     const payCycleDayEl = document.getElementById('empPayCycleDay');
 
@@ -2428,12 +2417,6 @@
       const role = String(roleEl?.value || 'employee').trim().toLowerCase();
       const isWorker = role === 'worker';
       const isManager = role === 'manager';
-
-      if (workerTagEl) {
-        workerTagEl.disabled = !isWorker;
-        if (!isWorker) workerTagEl.value = '';
-        if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
-      }
 
       if (mealModeEl) {
         mealModeEl.disabled = !isWorker;
@@ -2610,7 +2593,6 @@
         phone: document.getElementById('empPhone').value.trim(),
         gender: String(document.getElementById('empGender')?.value || '').trim().toLowerCase(),
         role: String(document.getElementById('empRole')?.value || '').trim().toLowerCase(),
-        worker_tag: String(document.getElementById('empWorkerTag')?.value || '').trim().toLowerCase(),
         meal_mode: String(document.getElementById('empMealMode')?.value || '').trim().toLowerCase(),
         pay_cycle_day: Number(document.getElementById('empPayCycleDay')?.value || '20'),
         base_salary: Number(document.getElementById('empBaseSalary').value),

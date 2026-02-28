@@ -739,7 +739,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance base_salary');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -750,7 +750,7 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -848,7 +848,7 @@ async function updateEmployee(req, res) {
     }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
-      .select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+      .select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
 
     return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
@@ -870,7 +870,7 @@ async function updateEmployeeStatus(req, res) {
       id,
       { active },
       { new: true, runValidators: true }
-    ).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active');
+    ).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
@@ -1086,7 +1086,12 @@ async function createEmployee(req, res) {
       active: !!active
     });
 
-    return res.status(201).json({ message: 'Employee created', employee: emp });
+    const created = emp && typeof emp.toObject === 'function' ? emp.toObject() : { ...(emp || {}) };
+    if (created && Object.prototype.hasOwnProperty.call(created, 'worker_tag')) {
+      delete created.worker_tag;
+    }
+
+    return res.status(201).json({ message: 'Employee created', employee: created });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
