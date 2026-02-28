@@ -797,13 +797,7 @@
 
   $('employeeEditRole')?.addEventListener('change', () => {
     const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
-    const isWorker = role === 'worker';
-    const mealModeEl = $('employeeEditMealMode');
     const payCycleEl = $('employeeEditPayCycleDay');
-    if (mealModeEl) {
-      mealModeEl.disabled = !isWorker;
-      if (!isWorker) mealModeEl.value = '';
-    }
     if (payCycleEl) {
       payCycleEl.value = role === 'manager' ? '1' : '20';
     }
@@ -2415,13 +2409,7 @@
 
     function syncRoleDependentFields() {
       const role = String(roleEl?.value || 'employee').trim().toLowerCase();
-      const isWorker = role === 'worker';
       const isManager = role === 'manager';
-
-      if (mealModeEl) {
-        mealModeEl.disabled = !isWorker;
-        if (!isWorker) mealModeEl.value = '';
-      }
 
       if (payCycleDayEl) {
         payCycleDayEl.value = isManager ? '1' : '20';

@@ -803,7 +803,7 @@ async function updateEmployee(req, res) {
     if (nextRole === 'worker' && nextWorkerTag && nextWorkerTag !== 'worker') {
       return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
     }
-    if (nextRole === 'worker' && nextMealMode && !['eat_in', 'eat_out'].includes(nextMealMode)) {
+    if (nextMealMode && !['eat_in', 'eat_out'].includes(nextMealMode)) {
       return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
     }
 
@@ -834,7 +834,7 @@ async function updateEmployee(req, res) {
       gender: nextGender || undefined,
       role: nextRole,
       worker_tag: nextRole === 'worker' ? (nextWorkerTag || 'worker') : undefined,
-      meal_mode: nextRole === 'worker' ? (nextMealMode || undefined) : undefined,
+      meal_mode: nextMealMode || undefined,
       pay_cycle_day: nextPayCycleDay,
       base_salary: nextBaseSalary,
       payroll_group: nextGroup,
@@ -1044,7 +1044,7 @@ async function createEmployee(req, res) {
     if (normalizedRole === 'worker' && normalizedWorkerTag && normalizedWorkerTag !== 'worker') {
       return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
     }
-    if (normalizedRole === 'worker' && normalizedMealMode && !['eat_in', 'eat_out'].includes(normalizedMealMode)) {
+    if (normalizedMealMode && !['eat_in', 'eat_out'].includes(normalizedMealMode)) {
       return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
     }
     const resolvedPayCycleDay = resolvePayCycleDay({ role: normalizedRole, payCycleDay: pay_cycle_day });
@@ -1075,7 +1075,7 @@ async function createEmployee(req, res) {
       gender: normalizedGender || undefined,
       role: normalizedRole,
       worker_tag: normalizedRole === 'worker' ? (normalizedWorkerTag || 'worker') : undefined,
-      meal_mode: normalizedRole === 'worker' ? (normalizedMealMode || undefined) : undefined,
+      meal_mode: normalizedMealMode || undefined,
       pay_cycle_day: resolvedPayCycleDay,
       base_salary: Number(base_salary),
       payroll_group: pg,
