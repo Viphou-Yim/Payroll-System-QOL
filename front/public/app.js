@@ -840,8 +840,7 @@
     if (!selectEl) return;
     const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
     if (!customOpt) return;
-    const pretty = formatDateAsDayOfMonth(dateValue);
-    customOpt.textContent = pretty || 'Custom date…';
+    customOpt.textContent = 'Custom day…';
   }
 
   function openDatePickerIfAvailable(dateEl) {
@@ -873,6 +872,14 @@
         dateEl.value = '';
       }
       setCustomPayCycleOptionLabel(selectEl, dateEl.value);
+    }
+  });
+  $('employeeEditPayCycleDay')?.addEventListener('click', () => {
+    const isCustom = $('employeeEditPayCycleDay')?.value === 'custom';
+    const dateEl = $('employeeEditPayCycleDate');
+    if (isCustom && dateEl) {
+      if (!dateEl.value) dateEl.value = getTodayDateInputValue();
+      openDatePickerIfAvailable(dateEl);
     }
   });
   $('employeeEditPayCycleDate')?.addEventListener('change', () => {
@@ -2645,6 +2652,12 @@
       payCycleDayEl.addEventListener('change', () => {
         syncCustomPayCycleUi();
         if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
+          openDatePickerIfAvailable(payCycleDateEl);
+        }
+      });
+      payCycleDayEl.addEventListener('click', () => {
+        if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
+          if (!payCycleDateEl.value) payCycleDateEl.value = getTodayDateInputValue();
           openDatePickerIfAvailable(payCycleDateEl);
         }
       });
