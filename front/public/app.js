@@ -839,8 +839,7 @@
     if (!selectEl) return;
     const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
     if (!customOpt) return;
-    const pretty = formatDateAsDdMmYyyy(dateValue);
-    customOpt.textContent = pretty ? `Custom date (${pretty})` : 'Custom date…';
+    customOpt.textContent = 'Custom date…';
   }
 
   function openDatePickerIfAvailable(dateEl) {
