@@ -71,7 +71,7 @@ function normalizeEmployeeRole(roleValue) {
 
 function resolvePayCycleDay({ role, payCycleDay }) {
   const parsed = Number(payCycleDay);
-  if (Number.isFinite(parsed) && (parsed === 1 || parsed === 20)) {
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 28) {
     return parsed;
   }
   return role === 'manager' ? 1 : 20;

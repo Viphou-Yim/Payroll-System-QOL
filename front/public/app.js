@@ -546,7 +546,26 @@
     $('employeeEditGender').value = employee.gender || 'male';
     $('employeeEditRole').value = employee.role || 'employee';
     $('employeeEditMealMode').value = employee.meal_mode || '';
-    $('employeeEditPayCycleDay').value = String(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
+    const editPayCycleDay = Number(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
+    const editPayCycleDayEl = $('employeeEditPayCycleDay');
+    const editCustomPayCycleEl = $('employeeEditCustomPayCycle');
+    const editPayCycleDateEl = $('employeeEditPayCycleDate');
+    if (editPayCycleDayEl) {
+      editPayCycleDayEl.value = String([1, 20].includes(editPayCycleDay) ? editPayCycleDay : 20);
+    }
+    if (editCustomPayCycleEl && editPayCycleDateEl) {
+      const isCustomDay = Number.isFinite(editPayCycleDay) && editPayCycleDay >= 1 && editPayCycleDay <= 28 && ![1, 20].includes(editPayCycleDay);
+      editCustomPayCycleEl.checked = isCustomDay;
+      editPayCycleDateEl.disabled = !isCustomDay;
+      if (isCustomDay) {
+        const now = new Date();
+        const month = String((now.getMonth() + 1)).padStart(2, '0');
+        const day = String(editPayCycleDay).padStart(2, '0');
+        editPayCycleDateEl.value = `${now.getFullYear()}-${month}-${day}`;
+      } else {
+        editPayCycleDateEl.value = '';
+      }
+    }
     $('employeeEditRole').dispatchEvent(new Event('change'));
     $('employeeEditSalary').value = employee.base_salary ?? 0;
     $('employeeEditGroup').value = employee.payroll_group || 'cut';
@@ -795,11 +814,29 @@
     });
   }
 
+  function derivePayCycleDayFromCustomDate(dateValue) {
+    if (!dateValue) return NaN;
+    const [year, month, day] = String(dateValue).split('-').map(Number);
+    if (!year || !month || !day) return NaN;
+    return day;
+  }
+
   $('employeeEditRole')?.addEventListener('change', () => {
     const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
     const payCycleEl = $('employeeEditPayCycleDay');
+    const customPayCycleEl = $('employeeEditCustomPayCycle');
     if (payCycleEl) {
-      payCycleEl.value = role === 'manager' ? '1' : '20';
+      if (!customPayCycleEl?.checked) {
+        payCycleEl.value = role === 'manager' ? '1' : '20';
+      }
+    }
+  });
+  $('employeeEditCustomPayCycle')?.addEventListener('change', () => {
+    const enabled = !!$('employeeEditCustomPayCycle')?.checked;
+    const dateEl = $('employeeEditPayCycleDate');
+    if (dateEl) {
+      dateEl.disabled = !enabled;
+      if (!enabled) dateEl.value = '';
     }
   });
   $('employeeEditClose')?.addEventListener('click', closeEmployeeEdit);
@@ -813,7 +850,11 @@
     const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
     const role = String($('employeeEditRole').value || '').trim().toLowerCase();
     const meal_mode = String($('employeeEditMealMode').value || '').trim().toLowerCase();
-    const pay_cycle_day = Number($('employeeEditPayCycleDay').value || '20');
+    const customPayCycle = !!$('employeeEditCustomPayCycle')?.checked;
+    const customPayCycleDate = String($('employeeEditPayCycleDate')?.value || '').trim();
+    const pay_cycle_day = customPayCycle
+      ? derivePayCycleDayFromCustomDate(customPayCycleDate)
+      : Number($('employeeEditPayCycleDay').value || '20');
     const base_salary = parseFloat($('employeeEditSalary').value);
     const payroll_group = String($('employeeEditGroup').value || '').trim();
     const has_20_deduction = !!$('employeeEditHas20').checked;
@@ -843,8 +884,10 @@
       if (status) status.textContent = 'Role is invalid.';
       return;
     }
-    if (![1, 20].includes(pay_cycle_day)) {
-      if (status) status.textContent = 'Pay cycle day must be 1 or 20.';
+    if (!Number.isFinite(pay_cycle_day) || pay_cycle_day < 1 || pay_cycle_day > 28) {
+      if (status) status.textContent = customPayCycle
+        ? 'Custom pay-cycle date is required and day must be between 1 and 28.'
+        : 'Pay cycle day must be between 1 and 28.';
       return;
     }
     if (!['cut', 'no-cut', 'monthly'].includes(payroll_group)) {
@@ -2406,14 +2449,25 @@
     const roleEl = document.getElementById('empRole');
     const mealModeEl = document.getElementById('empMealMode');
     const payCycleDayEl = document.getElementById('empPayCycleDay');
+    const customPayCycleEl = document.getElementById('empCustomPayCycle');
+    const payCycleDateEl = document.getElementById('empPayCycleDate');
 
     function syncRoleDependentFields() {
       const role = String(roleEl?.value || 'employee').trim().toLowerCase();
       const isManager = role === 'manager';
 
       if (payCycleDayEl) {
-        payCycleDayEl.value = isManager ? '1' : '20';
+        if (!customPayCycleEl || !customPayCycleEl.checked) {
+          payCycleDayEl.value = isManager ? '1' : '20';
+        }
       }
+    }
+
+    function syncCustomPayCycleUi() {
+      if (!payCycleDateEl) return;
+      const enabled = !!(customPayCycleEl && customPayCycleEl.checked);
+      payCycleDateEl.disabled = !enabled;
+      if (!enabled) payCycleDateEl.value = '';
     }
 
     function getGroupAvailability() {
@@ -2541,6 +2595,9 @@
     if (roleEl) {
       roleEl.addEventListener('change', syncRoleDependentFields);
     }
+    if (customPayCycleEl) {
+      customPayCycleEl.addEventListener('change', syncCustomPayCycleUi);
+    }
 
     [has20El, has10HoldEl, hasDebtEl].forEach((el) => {
       if (el) {
@@ -2567,6 +2624,7 @@
 
     updateGroupUiFromConditions();
     syncRoleDependentFields();
+    syncCustomPayCycleUi();
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -2576,13 +2634,19 @@
       const selectedGroups = getSelectedGroups();
       const resolvedPayrollGroup = resolvePayrollGroupForSubmit();
 
+      const customPayCycle = !!(document.getElementById('empCustomPayCycle')?.checked);
+      const customPayCycleDate = String(document.getElementById('empPayCycleDate')?.value || '').trim();
+      const resolvedPayCycleDay = customPayCycle
+        ? derivePayCycleDayFromCustomDate(customPayCycleDate)
+        : Number(document.getElementById('empPayCycleDay')?.value || '20');
+
       const payload = {
         name: document.getElementById('empName').value.trim(),
         phone: document.getElementById('empPhone').value.trim(),
         gender: String(document.getElementById('empGender')?.value || '').trim().toLowerCase(),
         role: String(document.getElementById('empRole')?.value || '').trim().toLowerCase(),
         meal_mode: String(document.getElementById('empMealMode')?.value || '').trim().toLowerCase(),
-        pay_cycle_day: Number(document.getElementById('empPayCycleDay')?.value || '20'),
+        pay_cycle_day: resolvedPayCycleDay,
         base_salary: Number(document.getElementById('empBaseSalary').value),
         payroll_group: resolvedPayrollGroup,
         start_date: document.getElementById('empStartDate').value || undefined,
@@ -2604,8 +2668,10 @@
         return;
       }
 
-      if (![1, 20].includes(payload.pay_cycle_day)) {
-        if (msg) msg.textContent = 'Pay cycle day must be 1 or 20.';
+      if (!Number.isFinite(payload.pay_cycle_day) || payload.pay_cycle_day < 1 || payload.pay_cycle_day > 28) {
+        if (msg) msg.textContent = customPayCycle
+          ? 'Custom pay-cycle date is required and day must be between 1 and 28.'
+          : 'Pay cycle day must be between 1 and 28.';
         saveBtn.disabled = false;
         return;
       }
