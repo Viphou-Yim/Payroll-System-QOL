@@ -136,6 +136,38 @@ describe('payrollController', () => {
     expect(deductionCreate).not.toHaveBeenCalled();
   });
 
+  test('generatePayrollForMonth - does not apply 10-day hold outside first employment month', async () => {
+    const emp = {
+      _id: 'empHold2',
+      base_salary: 24000,
+      has_20_deduction: false,
+      has_10day_holding: true,
+      start_date: '2026-01-05T00:00:00.000Z'
+    };
+    jest.spyOn(Idempotency, 'findOne').mockResolvedValue(null);
+    jest.spyOn(Employee, 'find').mockResolvedValue([emp]);
+    jest.spyOn(Attendance, 'findOne').mockResolvedValue({ days_worked: 30 });
+    jest.spyOn(Deduction, 'find').mockResolvedValue([]);
+    jest.spyOn(Saving, 'findOne').mockResolvedValue(null);
+
+    const payrollFindOne = jest.spyOn(PayrollRecord, 'findOne');
+    payrollFindOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null);
+
+    const calcSpy = jest.spyOn(payrollService, 'calculatePayrollForEmployee').mockReturnValue({ gross: 24000, totalDeductions: 0, net: 24000, deductionsApplied: [], withheld: 0, carryoverSavings: 0 });
+    const deductionCreate = jest.spyOn(Deduction, 'create').mockResolvedValue({});
+    jest.spyOn(PayrollRecord, 'create').mockResolvedValue({ id: 'prHold2' });
+
+    const req = { body: { month: '2026-02', payroll_group: 'cut' }, headers: {} };
+    const res = { json: jest.fn(), status: jest.fn().mockReturnThis() };
+
+    await controller.generatePayrollForMonth(req, res);
+
+    expect(calcSpy).toHaveBeenCalledWith(expect.objectContaining({ config: expect.objectContaining({ applyHolding: false }) }));
+    expect(deductionCreate).not.toHaveBeenCalled();
+  });
+
   test('recalculatePayrollForMonth calls undo and generate', async () => {
     const undoSpy = jest.spyOn(controller, 'undoPayrollForMonth').mockResolvedValue();
     const genSpy = jest.spyOn(controller, 'generatePayrollForMonth').mockResolvedValue();

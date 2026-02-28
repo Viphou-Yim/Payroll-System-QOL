@@ -230,6 +230,16 @@ function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
   };
 }
 
+function shouldApplyHoldingForMonth(employee, payrollMonth, applyCuts, priorHoldRecord) {
+  if (!applyCuts) return false;
+  if (priorHoldRecord) return false;
+  const startMonth = toYearMonth(employee?.start_date);
+  if (!startMonth) {
+    return true;
+  }
+  return startMonth === payrollMonth;
+}
+
 function getProfile20Contribution(calc) {
   const applied = Array.isArray(calc?.deductionsApplied) ? calc.deductionsApplied : [];
   const row = applied.find((entry) => entry?.type === 'profile_20_flat');
@@ -293,7 +303,7 @@ async function generatePayrollForMonth(req, res) {
       const saving = await Saving.findOne({ employee: emp._id });
       const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
       const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
-      const applyHoldingForEmployee = applyCutsForGroup && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
+      const applyHoldingForEmployee = shouldApplyHoldingForMonth(emp, month, applyCutsForGroup, priorHoldRecord);
 
       const calc = payrollService.calculatePayrollForEmployee({
         employee: emp,
@@ -423,7 +433,7 @@ async function generatePayrollForEmployee(req, res) {
     const saving = await Saving.findOne({ employee: emp._id });
     const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
     const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
-    const applyHoldingForEmployee = applyCutsForEmployee && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
+    const applyHoldingForEmployee = shouldApplyHoldingForMonth(emp, month, applyCutsForEmployee, priorHoldRecord);
 
     const calc = payrollService.calculatePayrollForEmployee({
       employee: emp,
