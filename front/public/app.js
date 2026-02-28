@@ -828,18 +828,19 @@
     return `${now.getFullYear()}-${month}-${day}`;
   }
 
-  function formatDateAsDdMmYyyy(dateValue) {
+  function formatDateAsDayOfMonth(dateValue) {
     if (!dateValue) return '';
-    const [year, month, day] = String(dateValue).split('-');
-    if (!year || !month || !day) return '';
-    return `${day}/${month}/${year}`;
+    const [, , day] = String(dateValue).split('-');
+    const dayNumber = Number(day);
+    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 31) return '';
+    return `Day ${dayNumber}`;
   }
 
   function setCustomPayCycleOptionLabel(selectEl, dateValue) {
     if (!selectEl) return;
     const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
     if (!customOpt) return;
-    const pretty = formatDateAsDdMmYyyy(dateValue);
+    const pretty = formatDateAsDayOfMonth(dateValue);
     customOpt.textContent = pretty || 'Custom date…';
   }
 
