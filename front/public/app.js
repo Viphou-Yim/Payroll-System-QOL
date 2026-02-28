@@ -548,23 +548,23 @@
     $('employeeEditMealMode').value = employee.meal_mode || '';
     const editPayCycleDay = Number(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
     const editPayCycleDayEl = $('employeeEditPayCycleDay');
-    const editCustomPayCycleEl = $('employeeEditCustomPayCycle');
     const editPayCycleDateEl = $('employeeEditPayCycleDate');
     if (editPayCycleDayEl) {
-      editPayCycleDayEl.value = String([1, 20].includes(editPayCycleDay) ? editPayCycleDay : 20);
-    }
-    if (editCustomPayCycleEl && editPayCycleDateEl) {
       const isCustomDay = Number.isFinite(editPayCycleDay) && editPayCycleDay >= 1 && editPayCycleDay <= 28 && ![1, 20].includes(editPayCycleDay);
-      editCustomPayCycleEl.checked = isCustomDay;
-      editPayCycleDateEl.disabled = !isCustomDay;
-      if (isCustomDay) {
-        const now = new Date();
-        const month = String((now.getMonth() + 1)).padStart(2, '0');
-        const day = String(editPayCycleDay).padStart(2, '0');
-        editPayCycleDateEl.value = `${now.getFullYear()}-${month}-${day}`;
-      } else {
-        editPayCycleDateEl.value = '';
+      editPayCycleDayEl.value = isCustomDay ? 'custom' : String([1, 20].includes(editPayCycleDay) ? editPayCycleDay : 20);
+      if (editPayCycleDateEl) {
+        editPayCycleDateEl.disabled = !isCustomDay;
+        editPayCycleDateEl.style.display = 'none';
+        if (isCustomDay) {
+          const now = new Date();
+          const month = String((now.getMonth() + 1)).padStart(2, '0');
+          const day = String(editPayCycleDay).padStart(2, '0');
+          editPayCycleDateEl.value = `${now.getFullYear()}-${month}-${day}`;
+        } else {
+          editPayCycleDateEl.value = '';
+        }
       }
+      setCustomPayCycleOptionLabel(editPayCycleDayEl, editPayCycleDateEl?.value || '');
     }
     $('employeeEditRole').dispatchEvent(new Event('change'));
     $('employeeEditSalary').value = employee.base_salary ?? 0;
@@ -821,23 +821,63 @@
     return day;
   }
 
+  function getTodayDateInputValue() {
+    const now = new Date();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${now.getFullYear()}-${month}-${day}`;
+  }
+
+  function formatDateAsDdMmYyyy(dateValue) {
+    if (!dateValue) return '';
+    const [year, month, day] = String(dateValue).split('-');
+    if (!year || !month || !day) return '';
+    return `${day}/${month}/${year}`;
+  }
+
+  function setCustomPayCycleOptionLabel(selectEl, dateValue) {
+    if (!selectEl) return;
+    const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
+    if (!customOpt) return;
+    const pretty = formatDateAsDdMmYyyy(dateValue);
+    customOpt.textContent = pretty ? `Custom date (${pretty})` : 'Custom date…';
+  }
+
+  function openDatePickerIfAvailable(dateEl) {
+    if (!dateEl || typeof dateEl.showPicker !== 'function') return false;
+    dateEl.showPicker();
+    return true;
+  }
+
   $('employeeEditRole')?.addEventListener('change', () => {
     const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
     const payCycleEl = $('employeeEditPayCycleDay');
-    const customPayCycleEl = $('employeeEditCustomPayCycle');
     if (payCycleEl) {
-      if (!customPayCycleEl?.checked) {
+      if (payCycleEl.value !== 'custom') {
         payCycleEl.value = role === 'manager' ? '1' : '20';
       }
     }
   });
-  $('employeeEditCustomPayCycle')?.addEventListener('change', () => {
-    const enabled = !!$('employeeEditCustomPayCycle')?.checked;
+  $('employeeEditPayCycleDay')?.addEventListener('change', () => {
+    const isCustom = $('employeeEditPayCycleDay')?.value === 'custom';
+    const selectEl = $('employeeEditPayCycleDay');
     const dateEl = $('employeeEditPayCycleDate');
     if (dateEl) {
-      dateEl.disabled = !enabled;
-      if (!enabled) dateEl.value = '';
+      dateEl.disabled = !isCustom;
+      dateEl.style.display = 'none';
+      if (isCustom) {
+        if (!dateEl.value) dateEl.value = getTodayDateInputValue();
+        openDatePickerIfAvailable(dateEl);
+      } else {
+        dateEl.value = '';
+      }
+      setCustomPayCycleOptionLabel(selectEl, dateEl.value);
     }
+  });
+  $('employeeEditPayCycleDate')?.addEventListener('change', () => {
+    const selectEl = $('employeeEditPayCycleDay');
+    const dateVal = String($('employeeEditPayCycleDate')?.value || '');
+    setCustomPayCycleOptionLabel(selectEl, dateVal);
   });
   $('employeeEditClose')?.addEventListener('click', closeEmployeeEdit);
   $('employeeEditCancel')?.addEventListener('click', closeEmployeeEdit);
@@ -850,7 +890,7 @@
     const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
     const role = String($('employeeEditRole').value || '').trim().toLowerCase();
     const meal_mode = String($('employeeEditMealMode').value || '').trim().toLowerCase();
-    const customPayCycle = !!$('employeeEditCustomPayCycle')?.checked;
+    const customPayCycle = $('employeeEditPayCycleDay')?.value === 'custom';
     const customPayCycleDate = String($('employeeEditPayCycleDate')?.value || '').trim();
     const pay_cycle_day = customPayCycle
       ? derivePayCycleDayFromCustomDate(customPayCycleDate)
@@ -2449,7 +2489,6 @@
     const roleEl = document.getElementById('empRole');
     const mealModeEl = document.getElementById('empMealMode');
     const payCycleDayEl = document.getElementById('empPayCycleDay');
-    const customPayCycleEl = document.getElementById('empCustomPayCycle');
     const payCycleDateEl = document.getElementById('empPayCycleDate');
 
     function syncRoleDependentFields() {
@@ -2457,7 +2496,7 @@
       const isManager = role === 'manager';
 
       if (payCycleDayEl) {
-        if (!customPayCycleEl || !customPayCycleEl.checked) {
+        if (payCycleDayEl.value !== 'custom') {
           payCycleDayEl.value = isManager ? '1' : '20';
         }
       }
@@ -2465,9 +2504,15 @@
 
     function syncCustomPayCycleUi() {
       if (!payCycleDateEl) return;
-      const enabled = !!(customPayCycleEl && customPayCycleEl.checked);
+      const enabled = payCycleDayEl?.value === 'custom';
       payCycleDateEl.disabled = !enabled;
-      if (!enabled) payCycleDateEl.value = '';
+      payCycleDateEl.style.display = 'none';
+      if (enabled) {
+        if (!payCycleDateEl.value) payCycleDateEl.value = getTodayDateInputValue();
+      } else {
+        payCycleDateEl.value = '';
+      }
+      setCustomPayCycleOptionLabel(payCycleDayEl, payCycleDateEl.value);
     }
 
     function getGroupAvailability() {
@@ -2595,8 +2640,18 @@
     if (roleEl) {
       roleEl.addEventListener('change', syncRoleDependentFields);
     }
-    if (customPayCycleEl) {
-      customPayCycleEl.addEventListener('change', syncCustomPayCycleUi);
+    if (payCycleDayEl) {
+      payCycleDayEl.addEventListener('change', () => {
+        syncCustomPayCycleUi();
+        if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
+          openDatePickerIfAvailable(payCycleDateEl);
+        }
+      });
+    }
+    if (payCycleDateEl) {
+      payCycleDateEl.addEventListener('change', () => {
+        setCustomPayCycleOptionLabel(payCycleDayEl, payCycleDateEl.value);
+      });
     }
 
     [has20El, has10HoldEl, hasDebtEl].forEach((el) => {
@@ -2634,7 +2689,7 @@
       const selectedGroups = getSelectedGroups();
       const resolvedPayrollGroup = resolvePayrollGroupForSubmit();
 
-      const customPayCycle = !!(document.getElementById('empCustomPayCycle')?.checked);
+      const customPayCycle = document.getElementById('empPayCycleDay')?.value === 'custom';
       const customPayCycleDate = String(document.getElementById('empPayCycleDate')?.value || '').trim();
       const resolvedPayCycleDay = customPayCycle
         ? derivePayCycleDayFromCustomDate(customPayCycleDate)

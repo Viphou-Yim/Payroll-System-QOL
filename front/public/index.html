@@ -210,13 +210,10 @@
               <select id="empPayCycleDay" required>
                 <option value="20">20 (20→20)</option>
                 <option value="1">1 (01→01)</option>
+                <option value="custom">Custom date…</option>
               </select>
-              <label for="empCustomPayCycle" class="group-mix-row" style="margin-top:10px">
-                <input id="empCustomPayCycle" type="checkbox" />
-                <span>Use custom pay-cycle date</span>
-              </label>
-              <input id="empPayCycleDate" type="date" disabled />
-              <div class="field-help">If custom date is set, payroll uses the day from that date (1-28).</div>
+              <input id="empPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Custom date uses day 1-28.</div>
             </div>
             <div>
               <label for="empPayrollGroup" class="group-label-inline">
@@ -393,13 +390,10 @@
               <select id="employeeEditPayCycleDay" required>
                 <option value="20">20 (20→20)</option>
                 <option value="1">1 (01→01)</option>
+                <option value="custom">Custom date…</option>
               </select>
-              <label for="employeeEditCustomPayCycle" class="group-mix-row" style="margin-top:10px">
-                <input id="employeeEditCustomPayCycle" type="checkbox" />
-                <span>Use custom pay-cycle date</span>
-              </label>
-              <input id="employeeEditPayCycleDate" type="date" disabled />
-              <div class="field-help">If custom date is set, payroll uses the day from that date (1-28).</div>
+              <input id="employeeEditPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Custom date uses day 1-28.</div>
             </div>
             <div>
               <label for="employeeEditGroup">Payroll group</label>
