@@ -857,7 +857,7 @@
     const displayOpt = existingDisplayOpt || document.createElement('option');
     displayOpt.value = CUSTOM_PAY_CYCLE_DISPLAY_VALUE;
     displayOpt.textContent = pretty;
-    displayOpt.disabled = true;
+    displayOpt.disabled = false;
     if (!existingDisplayOpt) {
       selectEl.insertBefore(displayOpt, customOpt);
     }
