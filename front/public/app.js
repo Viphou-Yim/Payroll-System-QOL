@@ -821,13 +821,6 @@
     return day;
   }
 
-  function getTodayDateInputValue() {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${now.getFullYear()}-${month}-${day}`;
-  }
-
   function getDefaultPayCycleDayForRole(roleValue) {
     const role = String(roleValue || '').trim().toLowerCase();
     return role === 'manager' ? '1' : '20';
@@ -903,7 +896,6 @@
       dateEl.disabled = !isCustom;
       dateEl.style.display = 'none';
       if (isCustom) {
-        if (!dateEl.value) dateEl.value = getTodayDateInputValue();
         openDatePickerIfAvailable(dateEl);
       } else {
         dateEl.value = '';
@@ -2543,9 +2535,7 @@
       const enabled = payCycleDayEl?.value === 'custom';
       payCycleDateEl.disabled = !enabled;
       payCycleDateEl.style.display = 'none';
-      if (enabled) {
-        if (!payCycleDateEl.value) payCycleDateEl.value = getTodayDateInputValue();
-      } else {
+      if (!enabled) {
         payCycleDateEl.value = '';
       }
       setCustomPayCycleOptionLabel(payCycleDayEl, payCycleDateEl.value);
