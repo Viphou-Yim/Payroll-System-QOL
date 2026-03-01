@@ -828,6 +828,11 @@
     return `${now.getFullYear()}-${month}-${day}`;
   }
 
+  function getDefaultPayCycleDayForRole(roleValue) {
+    const role = String(roleValue || '').trim().toLowerCase();
+    return role === 'manager' ? '1' : '20';
+  }
+
   function formatDateAsDayOfMonth(dateValue) {
     if (!dateValue) return '';
     const [, , day] = String(dateValue).split('-');
@@ -855,14 +860,22 @@
     const payCycleEl = $('employeeEditPayCycleDay');
     if (payCycleEl) {
       if (payCycleEl.value !== 'custom') {
-        payCycleEl.value = role === 'manager' ? '1' : '20';
+        payCycleEl.value = getDefaultPayCycleDayForRole(role);
       }
     }
   });
   $('employeeEditPayCycleDay')?.addEventListener('change', () => {
-    const isCustom = $('employeeEditPayCycleDay')?.value === 'custom';
     const selectEl = $('employeeEditPayCycleDay');
     const dateEl = $('employeeEditPayCycleDate');
+    if (!selectEl || !dateEl) return;
+
+    if (selectEl.value === 'clear') {
+      dateEl.value = '';
+      setCustomPayCycleOptionLabel(selectEl, '');
+      selectEl.value = getDefaultPayCycleDayForRole($('employeeEditRole')?.value || '');
+    }
+
+    const isCustom = selectEl.value === 'custom';
     if (dateEl) {
       dateEl.disabled = !isCustom;
       dateEl.style.display = 'none';
@@ -873,14 +886,6 @@
         dateEl.value = '';
       }
       setCustomPayCycleOptionLabel(selectEl, dateEl.value);
-    }
-  });
-  $('employeeEditPayCycleDay')?.addEventListener('click', () => {
-    const isCustom = $('employeeEditPayCycleDay')?.value === 'custom';
-    const dateEl = $('employeeEditPayCycleDate');
-    if (isCustom && dateEl) {
-      if (!dateEl.value) dateEl.value = getTodayDateInputValue();
-      openDatePickerIfAvailable(dateEl);
     }
   });
   $('employeeEditPayCycleDate')?.addEventListener('change', () => {
@@ -2502,11 +2507,10 @@
 
     function syncRoleDependentFields() {
       const role = String(roleEl?.value || 'employee').trim().toLowerCase();
-      const isManager = role === 'manager';
 
       if (payCycleDayEl) {
         if (payCycleDayEl.value !== 'custom') {
-          payCycleDayEl.value = isManager ? '1' : '20';
+          payCycleDayEl.value = getDefaultPayCycleDayForRole(role);
         }
       }
     }
@@ -2635,6 +2639,7 @@
       if (allowGroupMix) allowGroupMix.checked = false;
       updateGroupUiFromConditions();
       syncRoleDependentFields();
+      syncCustomPayCycleUi();
       if (msg) msg.textContent = '';
     };
 
@@ -2651,14 +2656,13 @@
     }
     if (payCycleDayEl) {
       payCycleDayEl.addEventListener('change', () => {
+        if (payCycleDayEl.value === 'clear') {
+          if (payCycleDateEl) payCycleDateEl.value = '';
+          setCustomPayCycleOptionLabel(payCycleDayEl, '');
+          payCycleDayEl.value = getDefaultPayCycleDayForRole(roleEl?.value || '');
+        }
         syncCustomPayCycleUi();
         if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
-          openDatePickerIfAvailable(payCycleDateEl);
-        }
-      });
-      payCycleDayEl.addEventListener('click', () => {
-        if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
-          if (!payCycleDateEl.value) payCycleDateEl.value = getTodayDateInputValue();
           openDatePickerIfAvailable(payCycleDateEl);
         }
       });
