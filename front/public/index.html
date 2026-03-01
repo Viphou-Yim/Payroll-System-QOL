@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Payroll Admin (Front)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+<<<<<<< HEAD
   <link rel="stylesheet" href="/style.css" />
   <script>window.API_BASE = 'http://localhost:4000';</script>
 </head>
@@ -37,6 +38,481 @@
         <label>Days worked: <input id="attDays" type="number" value="0"/></label>
         <label>Days absent: <input id="attAbsent" type="number" value="0"/></label>
         <button id="saveAtt">Save Attendance</button>
+=======
+  <link rel="stylesheet" href="./style.css" />
+  <script>window.API_BASE = 'http://localhost:4000';</script>
+</head>
+<body>
+  <div class="app-shell">
+    <div id="toast" class="toast" role="status" aria-live="polite" style="display:none"></div>
+    <header class="app-header">
+      <div class="header-left">
+        <h1 class="app-title">Payroll Admin</h1>
+      </div>
+      <div class="header-right" id="authControls">
+        <div class="login" id="loginForm">
+          <label for="loginUser">Username:</label>
+          <input id="loginUser" placeholder="admin"/>
+          <label for="loginPass">Password:</label>
+          <input id="loginPass" type="password" placeholder="password"/>
+          <button id="loginBtn">Sign in</button>
+          <span id="loginStatus"></span>
+        </div>
+        <div class="logged-in" id="loggedInState" style="display:none">
+          <div class="user-menu">
+            <button id="userMenuBtn" class="user-trigger" type="button" aria-haspopup="true">
+              Logged in as <strong id="userMenuName">admin</strong> ▾
+            </button>
+            <div class="user-menu-list" role="menu">
+              <a href="#account" class="user-menu-item" id="accountSettingsLink" role="menuitem">Account settings</a>
+              <button type="button" class="user-menu-item" id="logoutBtn" role="menuitem">Logout</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+    <nav class="tab-bar" id="mainNav" hidden>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">Operations ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#dashboard" class="tab" id="tab-dashboard" role="menuitem">Dashboard</a>
+          <a href="#attendance" class="tab" id="tab-attendance" role="menuitem">Attendance</a>
+          <a href="#run" class="tab" id="tab-run" role="menuitem">Run Payroll</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">Records ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#records" class="tab" id="tab-records" role="menuitem">Payroll Records</a>
+          <a href="#records-summary" class="tab" id="tab-records-summary" role="menuitem">Records Summary</a>
+          <a href="#get-together-history" class="tab" id="tab-get-together-history" role="menuitem">Get Together</a>
+          <a href="#deductions" class="tab" id="tab-deductions" role="menuitem">Deductions</a>
+          <a href="#savings" class="tab" id="tab-savings" role="menuitem">Savings</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">People ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#employees" class="tab" id="tab-employees" role="menuitem">Employees</a>
+          <a href="#employee-add" class="tab" id="tab-employee-add" role="menuitem">Add Employee</a>
+        </div>
+      </div>
+      <div class="nav-dropdown">
+        <button type="button" class="nav-trigger" aria-haspopup="true">System ▾</button>
+        <div class="nav-menu" role="menu">
+          <a href="#scheduler" class="tab" id="tab-scheduler" role="menuitem">Automatic Payroll</a>
+          <a href="#login" class="tab" id="tab-login" role="menuitem">Login/Signup</a>
+        </div>
+      </div>
+    </nav>
+    <div class="centered-content">
+      <main>
+    <!-- Pages are the same markup as the original admin.html for parity -->
+    <section id="sec-login" class="page" data-route="login" style="display:none">
+      <div class="section" style="max-width:400px;margin:40px auto;">
+        <h2>Sign In</h2>
+        <div class="section-desc">Sign in to access the payroll system.</div>
+        <form id="loginFormPage">
+          <label for="lsUsername">Username or email</label>
+          <input id="lsUsername" name="username" autocomplete="username" required placeholder="admin@example.com" />
+          <label for="lsPassword">Password</label>
+          <input id="lsPassword" name="password" type="password" autocomplete="current-password" required placeholder="password" />
+          <div style="display:flex;gap:12px;margin-top:16px;">
+            <button type="submit" id="lsLoginBtn">Sign In</button>
+            <a href="#signup" class="tab" style="padding:12px 0">Create account</a>
+          </div>
+          <div id="lsStatus" style="margin-top:12px;color:#b00;font-size:0.95em;"></div>
+        </form>
+      </div>
+    </section>
+    <section id="sec-signup" class="page" data-route="signup" style="display:none">
+      <div class="section" style="max-width:420px;margin:40px auto;">
+        <h2>Create Account</h2>
+        <div class="section-desc">Enter your details to create an account.</div>
+        <form id="signupForm">
+          <label for="suUsername">Username</label>
+          <input id="suUsername" autocomplete="username" required placeholder="yourname" />
+          <label for="suEmail">Email</label>
+          <input id="suEmail" type="email" autocomplete="email" required placeholder="you@example.com" />
+          <label for="suPassword">Password</label>
+          <input id="suPassword" type="password" autocomplete="new-password" required placeholder="password" />
+          <div class="field-help">At least 8 characters, with a letter and a number.</div>
+          <label for="suConfirm">Confirm password</label>
+          <input id="suConfirm" type="password" autocomplete="new-password" required placeholder="password" />
+          <div class="form-actions">
+            <button type="submit" id="suSignupBtn">Sign Up</button>
+            <a href="#login" class="tab" style="padding:12px 0">Back to sign in</a>
+          </div>
+          <div id="suStatus" class="field-error"></div>
+        </form>
+      </div>
+    </section>
+    <section id="sec-account" class="page" data-route="account" style="display:none">
+      <div class="section" style="max-width:420px;margin:40px auto;">
+        <h2>Account Settings</h2>
+        <div class="section-desc">Change your password.</div>
+        <form id="accountForm">
+          <label for="acctCurrent">Current password</label>
+          <input id="acctCurrent" type="password" autocomplete="current-password" required />
+          <label for="acctNew">New password</label>
+          <input id="acctNew" type="password" autocomplete="new-password" required />
+          <div class="field-help">At least 8 characters, with a letter and a number.</div>
+          <label for="acctConfirm">Confirm new password</label>
+          <input id="acctConfirm" type="password" autocomplete="new-password" required />
+          <div class="form-actions">
+            <button type="submit" id="acctSaveBtn">Save changes</button>
+            <a href="#dashboard" class="tab" style="padding:12px 0">Back to app</a>
+          </div>
+          <div id="acctStatus" class="field-error"></div>
+        </form>
+      </div>
+    </section>
+    <section id="sec-dashboard" class="page" data-route="dashboard" style="display:none">
+      <div class="section">
+        <h2>Dashboard</h2>
+        <div class="section-desc">Quick totals for payroll, savings, and debts.</div>
+        <div class="form-grid two-col records-month-row" style="max-width:520px">
+          <div>
+            <label for="dashMonth">Month</label>
+            <input id="dashMonth" type="month" />
+          </div>
+          <div class="form-actions" style="align-items:flex-end;margin:0;">
+            <button id="loadDashboard" type="button">Refresh Dashboard</button>
+            <span id="dashStatus" class="status-badge" style="display:none"></span>
+          </div>
+        </div>
+        <div id="dashboardCards" class="summary-cards">
+          <div class="summary-card">
+            <div class="label">Total Monthly Payroll</div>
+            <div class="value" id="dashPayrollTotal">--</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Total Savings Held</div>
+            <div class="value" id="dashSavingsHeld">--</div>
+          </div>
+          <div class="summary-card">
+            <div class="label">Employee Debts Summary</div>
+            <div class="value" id="dashDebtTotal">--</div>
+            <div class="meta" id="dashDebtMeta">--</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="sec-employee-add" class="page" data-route="employee-add" style="display:none">
+      <div class="section" style="max-width:720px">
+        <h2>Add Employee</h2>
+        <div class="section-desc">Create a new employee record (admin only).</div>
+        <form id="employeeAddForm" style="max-width:620px">
+          <div class="form-grid two-col">
+            <div>
+              <label for="empName">Full name</label>
+              <input id="empName" required placeholder="e.g., Alice Johnson" />
+            </div>
+            <div>
+              <label for="empPhone">Phone</label>
+              <input id="empPhone" placeholder="e.g., 0400 123 456" />
+              <label for="empGender" style="margin-top:10px">Gender</label>
+              <select id="empGender" required>
+                <option value="">Select…</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="empBaseSalary">Base salary</label>
+              <input id="empBaseSalary" type="number" step="0.01" min="0" required placeholder="e.g., 30000" />
+              <div class="field-help">Use yearly/monthly base based on your payroll rules.</div>
+            </div>
+            <div>
+              <label for="empRole">Role</label>
+              <select id="empRole" required>
+                <option value="employee">Employee</option>
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="car_driver">Car driver</option>
+                <option value="tuk_tuk_driver">Tuk tuk driver</option>
+              </select>
+              <label for="empMealMode" style="margin-top:10px">Meal mode</label>
+              <select id="empMealMode">
+                <option value="">None</option>
+                <option value="eat_in">Eat in</option>
+                <option value="eat_out">Eat out</option>
+              </select>
+              <label for="empPayCycleDay" style="margin-top:10px">Pay cycle day</label>
+              <select id="empPayCycleDay" required>
+                <option value="20">Day 20</option>
+                <option value="1">Day 1</option>
+                <option value="custom">Custom date…</option>
+                <option value="clear">Clear</option>
+              </select>
+              <input id="empPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Pay cycle runs on a specific day of each month (1-28). Clear first before choosing another custom date.</div>
+            </div>
+            <div>
+              <label for="empPayrollGroup" class="group-label-inline">
+                <span>Payroll group</span>
+                <span
+                  class="info-tooltip"
+                  tabindex="0"
+                  aria-label="Payroll group help: cut applies cut rules. no-cut skips cut rules. monthly is for monthly payroll behavior including debt profiles."
+                  data-tooltip="cut: applies cut rules (including eligible deduction/holding behavior).&#10;no-cut: skips cut rules.&#10;monthly: monthly payroll behavior (used for debt profile scenarios)."
+                >ⓘ</span>
+              </label>
+              <select id="empPayrollGroup" class="group-select" title="Select payroll group">
+                <option value="">Select…</option>
+                <option value="cut">cut</option>
+                <option value="no-cut">no-cut</option>
+                <option value="monthly">monthly</option>
+              </select>
+              <label for="empAllowGroupMix" class="group-mix-row">
+                <input id="empAllowGroupMix" type="checkbox" />
+                <span>Allow multiple or no group selection</span>
+                <span
+                  class="info-tooltip"
+                  tabindex="0"
+                  aria-label="When enabled, you can pick multiple groups or none. The server will auto-resolve to one group based on payroll conditions."
+                  data-tooltip="When enabled, you can pick multiple groups (or none). The server will auto-resolve to one group based on payroll conditions."
+                >ⓘ</span>
+              </label>
+              <div id="empGroupWarn" class="warning-text" style="display:none"></div>
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="empStartDate">Start date</label>
+              <input id="empStartDate" type="date" />
+            </div>
+            <div>
+              <label>Status</label>
+              <div style="display:flex;gap:14px;align-items:center;margin-top:10px">
+                <label style="display:flex;gap:8px;align-items:center;margin:0">
+                  <input id="empActive" type="checkbox" checked /> Active
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid">
+            <label class="checkbox-row">
+              <input id="empHas20" type="checkbox" /> Apply $20 deduction profile
+            </label>
+            <label class="checkbox-row">
+              <input id="empHas10Hold" type="checkbox" /> Withhold 10-day holding
+            </label>
+            <label class="checkbox-row">
+              <input id="empHasDebt" type="checkbox" /> Has debt deduction
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="empSaveBtn">Save Employee</button>
+            <button type="button" class="secondary" id="empClearBtn">Clear</button>
+          </div>
+          <div id="empAddMsg" class="field-error"></div>
+        </form>
+
+      </div>
+    </section>
+    <section id="sec-employees" class="page" data-route="employees" style="display:none">
+      <div class="section">
+        <h2>Employees</h2>
+        <div class="form-actions records-actions">
+          <button id="loadEmployeesList" type="button">Load Employees</button>
+          <button id="clearEmployeesFilters" type="button" class="secondary">Clear Filters</button>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="empListSearch">Name</label>
+            <input id="empListSearch" placeholder="Search by name" />
+          </div>
+          <div>
+            <label for="empListPhone">Phone</label>
+            <input id="empListPhone" placeholder="Search by phone" />
+          </div>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="empListGroup">Payroll Group</label>
+            <select id="empListGroup">
+              <option value="">All</option>
+              <option value="cut">cut</option>
+              <option value="no-cut">no-cut</option>
+              <option value="monthly">monthly</option>
+            </select>
+          </div>
+          <div>
+            <label for="empListGender">Gender</label>
+            <select id="empListGender">
+              <option value="">All</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+            </select>
+          </div>
+        </div>
+        <div id="employeesListStatus" class="field-help">Loading employees...</div>
+        <div id="employeesList"></div>
+      </div>
+    </section>
+
+    <div id="employeeViewModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Employee Details</h3>
+          <button type="button" class="icon-btn" id="employeeViewClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <pre id="employeeViewBody" class="response-block" style="margin-top:0"></pre>
+        <div class="form-actions" style="margin-bottom:0">
+          <button type="button" id="employeeViewEdit">Edit</button>
+          <button type="button" id="employeeViewDelete" class="secondary">Delete</button>
+          <button type="button" id="employeeViewToggleActive" class="secondary">Set Inactive</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="employeeEditModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card" style="max-width:560px">
+        <div class="modal-header">
+          <h3>Edit Employee</h3>
+          <button type="button" class="icon-btn" id="employeeEditClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <form id="employeeEditForm" class="modal-body" style="margin-bottom:0">
+          <input type="hidden" id="employeeEditId" />
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditName">Name</label>
+              <input id="employeeEditName" required />
+            </div>
+            <div>
+              <label for="employeeEditPhone">Phone</label>
+              <input id="employeeEditPhone" />
+              <label for="employeeEditGender" style="margin-top:10px">Gender</label>
+              <select id="employeeEditGender" required>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditSalary">Base salary</label>
+              <input id="employeeEditSalary" type="number" min="0" step="0.01" required />
+            </div>
+            <div>
+              <label for="employeeEditRole">Role</label>
+              <select id="employeeEditRole" required>
+                <option value="employee">Employee</option>
+                <option value="worker">Worker</option>
+                <option value="manager">Manager</option>
+                <option value="car_driver">Car driver</option>
+                <option value="tuk_tuk_driver">Tuk tuk driver</option>
+              </select>
+              <label for="employeeEditMealMode" style="margin-top:10px">Meal mode</label>
+              <select id="employeeEditMealMode">
+                <option value="">None</option>
+                <option value="eat_in">Eat in</option>
+                <option value="eat_out">Eat out</option>
+              </select>
+              <label for="employeeEditPayCycleDay" style="margin-top:10px">Pay cycle day</label>
+              <select id="employeeEditPayCycleDay" required>
+                <option value="20">Day 20</option>
+                <option value="1">Day 1</option>
+                <option value="custom">Custom date…</option>
+                <option value="clear">Clear</option>
+              </select>
+              <input id="employeeEditPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Pay cycle runs on a specific day of each month (1-28). Clear first before choosing another custom date.</div>
+            </div>
+            <div>
+              <label for="employeeEditGroup">Payroll group</label>
+              <select id="employeeEditGroup" required>
+                <option value="cut">cut</option>
+                <option value="no-cut">no-cut</option>
+                <option value="monthly">monthly</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-grid two-col" style="margin-bottom:0">
+            <div>
+              <label for="employeeEditStartDate">Start date</label>
+              <input id="employeeEditStartDate" type="date" />
+            </div>
+            <div>
+              <label style="margin-bottom:8px">Flags</label>
+              <label class="checkbox-row"><input id="employeeEditHas20" type="checkbox" /> Has $20 deduction</label>
+              <label class="checkbox-row"><input id="employeeEditHas10" type="checkbox" /> Has 10-day holding</label>
+              <label class="checkbox-row"><input id="employeeEditHasDebt" type="checkbox" /> Has debt deduction</label>
+              <label class="checkbox-row"><input id="employeeEditActive" type="checkbox" /> Active</label>
+            </div>
+          </div>
+          <div id="employeeEditStatus" class="field-error"></div>
+          <div class="form-actions" style="margin-bottom:0">
+            <button type="submit" id="employeeEditSave">Save</button>
+            <button type="button" id="employeeEditCancel" class="secondary">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <section id="sec-attendance" class="page" data-route="attendance" style="display:none">
+      <div class="section">
+        <h2>Attendance</h2>
+        <form id="attendanceForm" style="max-width:520px">
+          <div class="attendance-employee-block">
+            <label>Employee Search</label>
+            <div class="employee-search-box">
+              <input id="attEmpName" placeholder="Name (first or last)" class="emp-search-input" />
+              <input id="attEmpPhone" placeholder="Phone" class="emp-search-input" />
+              <select id="employeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+              <button id="attViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="attStartDate">Start date</label>
+              <input id="attStartDate" type="date" required />
+            </div>
+            <div>
+              <label for="attEndDate">End date</label>
+              <input id="attEndDate" type="date" required />
+            </div>
+          </div>
+          <div id="attTotalDays" class="field-help">Days in selected period: --</div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="attAbsent">Days absent</label>
+              <input id="attAbsent" type="number" min="0" step="1" value="0" required />
+              <div class="field-help">Days worked is auto-calculated as period days minus absent days.</div>
+            </div>
+            <div>
+              <label for="attDays">Days worked (auto)</label>
+              <input id="attDays" type="number" min="0" step="0.1" value="0" readonly />
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="attExtraDeduction">Extra deduction</label>
+              <input id="attExtraDeduction" type="number" min="0" step="0.01" value="0" />
+            </div>
+            <div>
+              <label for="attPenalty">Penalty</label>
+              <input id="attPenalty" type="number" min="0" step="0.01" value="0" />
+            </div>
+          </div>
+          <div id="attPreview" class="preview-card">Preview: select employee, start date, and end date.</div>
+          <div id="attValidation" style="color:#b00;font-size:0.95em;margin-bottom:8px;"></div>
+          <button id="saveAtt" type="submit">Save Attendance</button>
+        </form>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         <div id="attMsg"></div>
       </div>
     </section>
@@ -44,29 +520,200 @@
     <section id="sec-records" class="page" data-route="records" style="display:none">
       <div class="section">
         <h2>Payroll Records</h2>
+<<<<<<< HEAD
         <label>Month (YYYY-MM): <input id="recMonth" placeholder="2026-02"/></label>
         <button id="loadRecords">Load Records</button>
         <button id="exportCsv">Export CSV (client)</button>
         <button id="exportServerCsv">Export CSV (server)</button>
         <div id="recordsList"></div>
         <div id="recordDetails" style="margin-top:10px; white-space: pre-wrap; background:#f9f9f9; padding:8px; display:none"></div>
+=======
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recMonth">Month</label>
+            <input id="recMonth" type="month" />
+          </div>
+          <div class="field-help">Load records for a specific month or leave blank for latest.</div>
+        </div>
+        <div class="form-actions">
+          <button id="loadRecords" type="button">Load Records</button>
+          <div class="dropdown">
+            <button id="exportMenuBtn" type="button" class="secondary">Export ▾</button>
+            <div id="exportMenu" class="dropdown-menu" style="display:none">
+              <button id="exportExcel" type="button">Export Excel</button>
+              <button id="exportPdf" type="button">Export PDF (table)</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recSearch">Employee</label>
+            <input id="recSearch" placeholder="Search by name" />
+          </div>
+          <div>
+            <label for="recStatus">Status</label>
+            <select id="recStatus">
+              <option value="">All</option>
+              <option value="paid">Paid (total &gt; 0)</option>
+              <option value="zero">Zero/negative</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recNetMin">Total pay min</label>
+            <input id="recNetMin" type="number" step="0.01" placeholder="e.g., 1000" />
+          </div>
+          <div>
+            <label for="recNetMax">Total pay max</label>
+            <input id="recNetMax" type="number" step="0.01" placeholder="e.g., 5000" />
+          </div>
+        </div>
+        <div id="recordsList"></div>
+        <div id="recordDetails" style="margin-top:32px; background:#f9f9f9; padding:12px; border-radius:6px; border:1px solid #eee; display:none"></div>
+      </div>
+    </section>
+
+    <section id="sec-records-summary" class="page" data-route="records-summary" style="display:none">
+      <div class="section">
+        <h2>Records Summary</h2>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="recSumMonth">Month</label>
+            <input id="recSumMonth" type="month" />
+          </div>
+          <div class="field-help">Load records for a specific month or leave blank for all.</div>
+        </div>
+        <div class="form-actions">
+          <button id="loadSummary" type="button">Load Summary</button>
+          <span id="recSumStatus" class="status-badge" style="display:none"></span>
+        </div>
+        <div class="summary-table-wrap">
+          <table class="summary-table">
+            <thead>
+              <tr>
+                <th>Payroll ID</th>
+                <th>Employee</th>
+                <th>Gender</th>
+                <th>Group</th>
+                <th>Month</th>
+                <th>Total</th>
+                <th>Created</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recSummaryBody"></tbody>
+          </table>
+        </div>
+        <div class="summary-pagination">
+          <button id="recSumPrev" type="button" class="secondary">Prev</button>
+          <span id="recSumPage">Page 1</span>
+          <button id="recSumNext" type="button" class="secondary">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="sec-get-together-history" class="page" data-route="get-together-history" style="display:none">
+      <div class="section">
+        <h2>Get Together Payout History</h2>
+        <div class="section-desc">Track payout events, remarks, and totals.</div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="gtMonth">Month</label>
+            <input id="gtMonth" type="month" />
+          </div>
+          <div class="form-actions" style="align-items:flex-end;margin:0">
+            <button id="loadGtHistory" type="button">Load Payouts</button>
+            <button id="exportGtHistoryCsv" type="button" class="secondary">Export CSV</button>
+            <span id="gtHistoryStatus" class="status-badge" style="display:none"></span>
+          </div>
+        </div>
+        <div id="gtHistoryTotals" class="field-help">No data loaded.</div>
+        <div id="gtHistoryList"></div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       </div>
     </section>
 
     <section id="sec-run" class="page" data-route="run" style="display:none">
       <div class="section">
         <h2>Run Payroll for Employee</h2>
+<<<<<<< HEAD
         <label>Employee: <select id="runEmployeeSelect"><option>Loading...</option></select></label>
         <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
         <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
         <label><input type="checkbox" id="runForce"/> Force</label>
         <button id="runPayrollEmp">Run Payroll</button>
         <div id="runResp"></div>
+=======
+        <form id="runPayrollForm" style="max-width:520px">
+          <div class="form-grid two-col">
+            <div>
+              <label>Employee Search</label>
+              <div class="employee-search-box">
+                <input id="runEmpName" placeholder="Name (first or last)" class="emp-search-input" />
+                <input id="runEmpPhone" placeholder="Phone" class="emp-search-input" />
+                <select id="runEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+                <button id="runViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
+              </div>
+            </div>
+            <div>
+              <label for="runMonth">Month</label>
+              <input id="runMonth" type="month" required />
+              <div class="toggle run-force-toggle">
+                <input type="checkbox" id="runForce" />
+                <label for="runForce" class="inline-info-label">
+                  <span>Force run (overrides existing record)</span>
+                  <span
+                    class="info-tooltip"
+                    tabindex="0"
+                    aria-label="Force run deletes existing payroll for the selected employee and month, then recalculates it. Use this only when you intentionally want to overwrite a previous result."
+                    data-tooltip="Force run will overwrite any existing payroll record for this employee and month, then recalculate it from current data. Use with care."
+                  >ⓘ</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div id="runForceWarning" class="warning-text" style="display:none">Warning: This will regenerate payroll for the selected month.</div>
+          <details class="advanced">
+            <summary>Advanced options</summary>
+            <div class="toggle">
+              <input type="checkbox" id="runZeroAbsenceBonusEnabled" />
+              <label for="runZeroAbsenceBonusEnabled" class="inline-info-label">
+                <span>Zero-absence bonus (ON/OFF)</span>
+                <span
+                  class="info-tooltip"
+                  tabindex="0"
+                  aria-label="When enabled, payroll adds an optional bonus if the employee has zero absent days for the selected month."
+                  data-tooltip="Adds a bonus when attendance for the selected month has zero absent days."
+                >ⓘ</span>
+              </label>
+            </div>
+            <label for="runZeroAbsenceBonusAmount">Zero-absence bonus amount</label>
+            <input id="runZeroAbsenceBonusAmount" type="number" min="0" step="0.01" value="0" disabled />
+            <label for="runIdemp" class="inline-info-label">
+              <span>Idempotency key (optional)</span>
+              <span
+                class="info-tooltip"
+                tabindex="0"
+                aria-label="Prevents duplicate payroll runs. Reuse the same key when retrying the same request."
+                data-tooltip="Prevents duplicate payroll runs. Reuse the same key for retries of the same request."
+              >ⓘ</span>
+            </label>
+            <input id="runIdemp" placeholder="optional key" />
+            <div class="field-help">Format examples: <strong>employeeId-month</strong> (emp_6990-2026-02), <strong>employeeId-phone-month</strong> (emp_6990-09090909-2026-02), or a UUID/request ID.</div>
+          </details>
+          <div id="runPreview" class="preview-card">Preview: select employee and month.</div>
+          <div id="runValidation" class="field-error"></div>
+          <button id="runPayrollEmp" type="submit">Run Payroll</button>
+        </form>
+        <div id="runResp" class="response-block" aria-live="polite"></div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       </div>
     </section>
 
     <section id="sec-scheduler" class="page" data-route="scheduler" style="display:none">
       <div class="section">
+<<<<<<< HEAD
         <h2>Scheduler</h2>
         <label>Payroll group: <input id="schedGroup" value="cut"/></label>
         <label>Cron expression: <input id="schedExpr" value="0 5 1 * *"/></label>
@@ -74,12 +721,52 @@
         <button id="stopSched">Stop</button>
         <button id="statusSched">Status</button>
         <div id="schedMsg"></div>
+=======
+        <h2>Automatic Payroll</h2>
+        <div class="section-desc">Set when payroll runs automatically each month.</div>
+        <div class="form-grid two-col" style="max-width:620px">
+          <div>
+            <label for="schedGroup">Payroll group</label>
+            <select id="schedGroup">
+              <option value="cut">cut</option>
+              <option value="monthly">monthly</option>
+              <option value="no-cut">no-cut</option>
+            </select>
+          </div>
+          <div>
+            <label for="schedPreset">Run schedule</label>
+            <select id="schedPreset">
+              <option value="0 5 1 * *">1st day of every month at 5:00 AM</option>
+              <option value="0 9 1 * *">1st day of every month at 9:00 AM</option>
+              <option value="0 18 L * *">Last day of month at 6:00 PM</option>
+              <option value="0 9 * * 1">Every Monday at 9:00 AM</option>
+              <option value="custom">Custom (advanced)</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="advanced" style="max-width:620px">
+          <summary>Advanced schedule (cron)</summary>
+          <label for="schedExpr">Cron expression</label>
+          <input id="schedExpr" value="0 5 1 * *" disabled />
+          <div class="field-help">Used only when Run schedule is set to Custom. <a href="https://crontab.guru/" target="_blank" rel="noopener noreferrer">Cron format</a></div>
+        </details>
+
+        <div class="form-actions">
+          <button id="startSched" type="button">Turn On Automation</button>
+          <button id="stopSched" type="button" class="secondary">Turn Off Automation</button>
+          <button id="statusSched" type="button" class="secondary">Check Status</button>
+          <span id="schedStatus" class="status-badge">Unknown</span>
+        </div>
+        <div id="schedMsg" class="field-help"></div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       </div>
     </section>
 
     <section id="sec-deductions" class="page" data-route="deductions" style="display:none">
       <div class="section">
         <h2>Deductions</h2>
+<<<<<<< HEAD
         <label>Employee: <select id="dedEmployeeSelect"><option>Loading...</option></select></label>
         <label>Type: <select id="dedType"><option value="debt">debt</option><option value="damage">damage</option><option value="monthly_debt">monthly_debt</option><option value="other">other</option></select></label>
         <label>Amount: <input id="dedAmount" type="number"/></label>
@@ -88,12 +775,75 @@
         <button id="createDed">Create Deduction</button>
         <button id="loadDeds">Load Deductions</button>
         <div id="dedList"></div>
+=======
+        <form id="deductionsForm" style="max-width:520px">
+          <div class="form-grid two-col">
+            <div>
+              <label>Employee Search</label>
+              <div class="employee-search-box">
+                <input id="dedEmpName" placeholder="Name (first or last)" class="emp-search-input" />
+                <input id="dedEmpPhone" placeholder="Phone" class="emp-search-input" />
+                <select id="dedEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+                <button id="dedViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
+              </div>
+            </div>
+            <div>
+              <label for="dedMonth">Month</label>
+              <input id="dedMonth" type="month" required />
+            </div>
+          </div>
+          <div class="form-grid two-col">
+            <div>
+              <label for="dedType">Type</label>
+              <select id="dedType"><option value="debt">debt</option><option value="damage">damage</option><option value="monthly_debt">monthly_debt</option><option value="other">other</option></select>
+            </div>
+            <div>
+              <label for="dedAmount">Amount</label>
+              <input id="dedAmount" type="number" min="0" step="0.01" placeholder="e.g., 120.00" required />
+            </div>
+          </div>
+          <label for="dedReason">Reason</label>
+          <input id="dedReason" placeholder="Optional" />
+          <div id="dedValidation" class="field-error"></div>
+          <div class="form-actions">
+            <button id="createDed" type="submit">Create Deduction</button>
+            <button id="loadDeds" type="button" class="secondary">Load Deductions</button>
+          </div>
+        </form>
+        <div id="dedList"></div>
+        <div class="section" style="margin-top:24px;">
+          <h3 style="margin-top:0">Debt Tracking</h3>
+          <div class="field-help">Supports former employees and partial payments.</div>
+          <form id="debtPaymentForm" style="max-width:520px">
+            <div class="form-grid two-col">
+              <div>
+                <label for="debtPayAmount">Amount paid</label>
+                <input id="debtPayAmount" type="number" min="0" step="0.01" required />
+              </div>
+              <div>
+                <label for="debtPayDate">Date of payment</label>
+                <input id="debtPayDate" type="date" required />
+              </div>
+            </div>
+            <label for="debtPayNote">Note</label>
+            <input id="debtPayNote" placeholder="Optional" />
+            <div id="debtPayValidation" class="field-error"></div>
+            <div class="form-actions">
+              <button id="saveDebtPayment" type="submit">Record Payment</button>
+              <button id="loadDebtPayments" type="button" class="secondary">Load Debt History</button>
+            </div>
+          </form>
+          <div id="debtSummary" class="field-help"></div>
+          <div id="debtPaymentList"></div>
+        </div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       </div>
     </section>
 
     <section id="sec-savings" class="page" data-route="savings" style="display:none">
       <div class="section">
         <h2>Savings</h2>
+<<<<<<< HEAD
         <button id="loadSavings">Load Savings</button>
         <div id="savingsList"></div>
       </div>
@@ -101,5 +851,122 @@
   </main>
 
   <script src="/app.js"></script>
+=======
+        <div class="section-desc">View and manage employee savings contributions.</div>
+        <div id="savingsSummary" class="summary-cards"></div>
+        <div class="form-grid two-col" style="max-width:520px">
+          <div>
+            <label for="savPayoutMonth">Payout month</label>
+            <input id="savPayoutMonth" type="month" />
+          </div>
+          <div class="form-actions" style="align-items:flex-end;margin:0;">
+            <button id="payoutKny" type="button" class="secondary">One-click payout: KNY</button>
+            <button id="payoutPchum" type="button" class="secondary">One-click payout: Pchum Ben</button>
+          </div>
+        </div>
+        <div id="savPayoutStatus" class="field-help"></div>
+        <button id="loadSavings" type="button">Load Savings</button>
+        <div id="savingsList"></div>
+      </div>
+    </section>
+
+    <div id="recSummaryViewModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Record Details</h3>
+          <button type="button" class="icon-btn" id="recSummaryViewClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <pre id="recSummaryViewBody" class="response-block"></pre>
+        <div class="form-actions">
+          <button type="button" id="recSummaryViewEdit">Edit</button>
+          <button type="button" id="recSummaryViewDelete" class="secondary">Delete</button>
+          <button type="button" id="recSummaryViewRecalc" class="secondary">Recalculate</button>
+        </div>
+        <div id="recSummaryViewStatus" class="field-error"></div>
+      </div>
+    </div>
+
+    <div id="recSummaryEditModal" class="modal" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card rec-edit-card">
+        <div class="modal-header">
+          <h3>Edit Record</h3>
+          <button type="button" class="icon-btn" id="recSummaryEditClose" aria-label="Close">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        <form id="recSummaryEditForm" class="modal-body rec-edit-form">
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditDeductions">Total deductions</label>
+              <input id="recEditDeductions" type="number" step="0.01" required />
+            </div>
+            <div>
+              <label for="recEditBonuses">Bonuses</label>
+              <input id="recEditBonuses" type="number" step="0.01" required />
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditNet">Total</label>
+              <input id="recEditNet" type="number" step="0.01" required />
+            </div>
+            <div>
+              <label for="recEditWithheld">Withheld</label>
+              <input id="recEditWithheld" type="number" step="0.01" required />
+            </div>
+          </div>
+
+          <div class="form-grid two-col">
+            <div>
+              <label for="recEditCarry">Carryover savings</label>
+              <input id="recEditCarry" type="number" step="0.01" required />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="recEditSave">Save</button>
+            <button type="button" id="recEditCancel" class="secondary">Cancel</button>
+          </div>
+          <div id="recEditStatus" class="field-error"></div>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <div id="dedEditModal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="dedEditTitle">
+      <div class="modal-header">
+        <h3 id="dedEditTitle">Edit Deduction</h3>
+        <button id="dedEditClose" type="button" class="icon-btn" aria-label="Close edit modal">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.4 4.3 19.7 2.89 18.29 9.17 12 2.89 5.71 4.3 4.3l6.29 6.29 6.29-6.29z"/></svg>
+        </button>
+      </div>
+      <form id="dedEditForm" class="modal-body">
+        <input id="dedEditId" type="hidden" />
+        <label for="dedEditAmount">Amount</label>
+        <input id="dedEditAmount" type="number" min="0" step="0.01" required />
+        <div id="dedEditAmountError" class="field-error" style="display:none"></div>
+        <label for="dedEditReason">Reason</label>
+        <input id="dedEditReason" placeholder="Optional" />
+        <div id="dedEditValidation" class="field-error"></div>
+        <div class="form-actions">
+          <button id="dedEditSave" type="submit">Save Changes</button>
+          <button id="dedEditCancel" type="button" class="secondary">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="./app.js"></script>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
 </body>
 </html>

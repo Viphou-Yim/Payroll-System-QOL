@@ -12,6 +12,10 @@ describe('Scheduler endpoints', () => {
 
     const res = await request(app)
       .post('/api/payroll/schedule/start')
+<<<<<<< HEAD
+=======
+      .set('x-api-key', 'test-api-key')
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       .send({ payroll_group: 'cut', cronExpression: '*/5 * * * *' })
       .expect(200);
 
@@ -25,6 +29,10 @@ describe('Scheduler endpoints', () => {
 
     const res = await request(app)
       .post('/api/payroll/schedule/stop')
+<<<<<<< HEAD
+=======
+      .set('x-api-key', 'test-api-key')
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       .send({ payroll_group: 'cut' })
       .expect(200);
 

@@ -42,6 +42,15 @@ router.post('/holds/clear', controller.clearHold);
 
 // Employees - list employees for admin UI
 router.get('/employees', controller.listEmployees);
+<<<<<<< HEAD
+=======
+router.get('/employees/all', sessionAuth.requireAdmin, controller.listAllEmployees);
+router.post('/employees', sessionAuth.requireAdmin, controller.createEmployee);
+router.patch('/employees/:id', sessionAuth.requireAdmin, controller.updateEmployee);
+router.patch('/employees/:id/status', sessionAuth.requireAdmin, controller.updateEmployeeStatus);
+router.post('/employees/:id/get-together/payout', sessionAuth.requireAdmin, controller.payoutGetTogetherBalance);
+router.delete('/employees/:id', sessionAuth.requireAdmin, controller.deleteEmployee);
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
 
 // Deductions - allow creating deductions including `monthly_debt`
 router.post('/deductions', controller.createDeduction);
@@ -49,10 +58,15 @@ router.post('/deductions', controller.createDeduction);
 router.get('/deductions', controller.listDeductions);
 router.patch('/deductions/:id', controller.updateDeduction);
 router.delete('/deductions/:id', controller.deleteDeduction);
+router.post('/debts/payments', sessionAuth.requireAdmin, controller.createDebtPayment);
+router.get('/debts/payments', sessionAuth.requireAdmin, controller.listDebtPayments);
+router.get('/debts/summary', sessionAuth.requireAdmin, controller.getDebtSummary);
 
 // Savings
 router.get('/savings', controller.getSavings);
 router.post('/savings/:employeeId', controller.updateSaving);
+router.post('/savings/payout', sessionAuth.requireAdmin, controller.payoutSavingsForFestival);
+router.get('/get-together/payouts', sessionAuth.requireAdmin, controller.listGetTogetherPayouts);
 
 // Scheduler endpoints (uses persisted scheduler)
 router.post('/schedule/start', scheduleStartValidator, controller.startMonthlyScheduler);
@@ -61,7 +75,14 @@ router.get('/schedule', controller.getSchedulerStatus);
 
 // GET /api/payroll/records?month=YYYY-MM
 router.get('/records', controller.getPayrollRecords);
+<<<<<<< HEAD
+=======
+// Update/delete a single record (admin only)
+router.patch('/records/:id', sessionAuth.requireAdmin, controller.updatePayrollRecord);
+router.delete('/records/:id', sessionAuth.requireAdmin, controller.deletePayrollRecord);
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
 // Server-side CSV export: GET /api/payroll/export?month=YYYY-MM
 router.get('/export', controller.exportPayrollCsv);
 
 module.exports = router;
+ 

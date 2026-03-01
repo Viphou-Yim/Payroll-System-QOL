@@ -8,7 +8,7 @@
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
     "seed": "node src/seedSampleData.js",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand --setupFilesAfterEnv ./jest.setup.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

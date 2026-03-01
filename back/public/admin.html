@@ -37,6 +37,10 @@
   </div>
 
   <nav style="margin-top:12px; margin-bottom:12px">
+<<<<<<< HEAD
+=======
+    <a href="#dashboard">Dashboard</a> |
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     <a href="#attendance">Attendance</a> |
     <a href="#records">Payroll Records</a> |
     <a href="#run">Run Payroll</a> |
@@ -46,6 +50,24 @@
   </nav>
 
   <main>
+<<<<<<< HEAD
+=======
+    <section id="sec-dashboard" class="page" data-route="dashboard" style="display:none">
+      <div class="section">
+        <h2>Dashboard</h2>
+        <label>Month: <input id="dashMonth" type="month" /></label>
+        <button id="loadDashboard">Refresh Dashboard</button>
+        <div id="dashStatus" style="margin-top:8px;color:#666"></div>
+        <table style="margin-top:12px">
+          <tr><th>Metric</th><th>Value</th></tr>
+          <tr><td>Total monthly payroll</td><td id="dashPayrollTotal">--</td></tr>
+          <tr><td>Total savings held</td><td id="dashSavingsHeld">--</td></tr>
+          <tr><td>Employee debts summary</td><td><span id="dashDebtTotal">--</span> <span id="dashDebtMeta"></span></td></tr>
+        </table>
+      </div>
+    </section>
+
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     <section id="sec-attendance" class="page" data-route="attendance" style="display:none">
       <div class="section">
         <h2>Attendance</h2>
@@ -53,6 +75,14 @@
         <label>Month (YYYY-MM): <input id="attMonth" placeholder="2026-02"/></label>
         <label>Days worked: <input id="attDays" type="number" value="0"/></label>
         <label>Days absent: <input id="attAbsent" type="number" value="0"/></label>
+<<<<<<< HEAD
+=======
+        <div style="font-size:0.92rem;color:#666;margin-top:-4px;">Preferred: enter absent days for the full month.</div>
+        <button id="attAutoFillDays" type="button">Auto-fill Worked Days</button>
+        <label>Extra deduction: <input id="attExtraDeduction" type="number" min="0" step="0.01" value="0"/></label>
+        <label>Penalty: <input id="attPenalty" type="number" min="0" step="0.01" value="0"/></label>
+        <div id="attPreview" style="margin-top:10px;background:#f9f9f9;border:1px solid #eee;padding:8px;border-radius:6px;">Preview: select employee and month.</div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         <button id="saveAtt">Save Attendance</button>
         <div id="attMsg"></div>
       </div>
@@ -77,6 +107,12 @@
         <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
         <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
         <label><input type="checkbox" id="runForce"/> Force</label>
+<<<<<<< HEAD
+=======
+        <label><input type="checkbox" id="runZeroAbsenceBonusEnabled"/> Zero-absence bonus (ON/OFF)</label>
+        <label>Zero-absence bonus amount: <input id="runZeroAbsenceBonusAmount" type="number" min="0" step="0.01" value="0" disabled/></label>
+        <div id="runPreviewLegacy" style="margin-top:10px;background:#f9f9f9;border:1px solid #eee;padding:8px;border-radius:6px;">Preview: select employee and month.</div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         <button id="runPayrollEmp">Run Payroll</button>
         <div id="runResp"></div>
       </div>
@@ -105,12 +141,33 @@
         <button id="createDed">Create Deduction</button>
         <button id="loadDeds">Load Deductions</button>
         <div id="dedList"></div>
+<<<<<<< HEAD
+=======
+
+        <h3 style="margin-top:18px">Debt Tracking</h3>
+        <div style="color:#666;font-size:0.92rem;margin-bottom:8px">Supports former employees and partial payments.</div>
+        <label>Amount paid: <input id="debtPayAmount" type="number" min="0" step="0.01" /></label>
+        <label>Date of payment: <input id="debtPayDate" type="date" /></label>
+        <label>Note: <input id="debtPayNote" /></label>
+        <button id="saveDebtPayment" type="button">Record Payment</button>
+        <button id="loadDebtPayments" type="button">Load Debt History</button>
+        <div id="debtPayValidation" style="color:#b00;margin-top:8px"></div>
+        <div id="debtSummary" style="color:#666;margin-top:8px"></div>
+        <div id="debtPaymentList"></div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       </div>
     </section>
 
     <section id="sec-savings" class="page" data-route="savings" style="display:none">
       <div class="section">
         <h2>Savings</h2>
+<<<<<<< HEAD
+=======
+        <label>Payout month: <input id="savPayoutMonth" type="month" /></label>
+        <button id="payoutKny" type="button">One-click payout: KNY</button>
+        <button id="payoutPchum" type="button">One-click payout: Pchum Ben</button>
+        <div id="savPayoutStatus" style="margin-top:8px;color:#666"></div>
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         <button id="loadSavings">Load Savings</button>
         <div id="savingsList"></div>
       </div>
@@ -142,15 +199,90 @@
       r.body.forEach(e => {
         const opt = document.createElement('option'); opt.value = e._id; opt.textContent = `${e.name} (${e.payroll_group})`; runSel.appendChild(opt);
       });
+<<<<<<< HEAD
     }
 
+=======
+
+      const dedSel = document.getElementById('dedEmployeeSelect');
+      dedSel.innerHTML = '';
+      let dedEmployees = r.body || [];
+      const allResp = await fetchJson('/api/payroll/employees/all');
+      if (allResp.status === 200 && Array.isArray(allResp.body) && allResp.body.length) {
+        dedEmployees = allResp.body;
+      }
+      dedEmployees.forEach((e) => {
+        const opt = document.createElement('option');
+        opt.value = e._id;
+        const status = e.active === false ? ' [former]' : '';
+        opt.textContent = `${e.name}${status}`;
+        dedSel.appendChild(opt);
+      });
+      updateAttendancePreview();
+    }
+
+    function getAttendanceMonthDays(month) {
+      if (!month || !/^\d{4}-\d{2}$/.test(month)) return 30;
+      const [y, m] = month.split('-');
+      return new Date(Number(y), Number(m), 0).getDate();
+    }
+
+    function updateAttendancePreview() {
+      const preview = document.getElementById('attPreview');
+      if (!preview) return;
+      const month = document.getElementById('attMonth').value;
+      const daysWorked = parseFloat(document.getElementById('attDays').value) || 0;
+      const daysAbsent = parseFloat(document.getElementById('attAbsent').value) || 0;
+      const extraDeduction = parseFloat(document.getElementById('attExtraDeduction').value) || 0;
+      const penalty = parseFloat(document.getElementById('attPenalty').value) || 0;
+      const selected = document.getElementById('employeeSelect').selectedOptions[0];
+      const label = selected ? selected.textContent : 'No employee selected';
+
+      if (!month) {
+        preview.textContent = `Preview: ${label} • select month to estimate attendance impact.`;
+        return;
+      }
+
+      const monthDays = getAttendanceMonthDays(month);
+      const suggestedWorked = Math.max(0, monthDays - daysAbsent);
+      preview.textContent = `Preview: ${label} • Month days ${monthDays} • Suggested worked ${suggestedWorked} • Entered worked ${daysWorked} • Extra deductions ${formatMoney(extraDeduction + penalty)}`;
+    }
+
+    ['employeeSelect','attMonth','attDays','attAbsent','attExtraDeduction','attPenalty'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateAttendancePreview);
+      if (el) el.addEventListener('change', updateAttendancePreview);
+    });
+
+    document.getElementById('attAutoFillDays').addEventListener('click', () => {
+      const month = document.getElementById('attMonth').value;
+      if (!month) {
+        document.getElementById('attMsg').textContent = 'Select month before auto-fill.';
+        return;
+      }
+      const monthDays = getAttendanceMonthDays(month);
+      const daysAbsent = parseInt(document.getElementById('attAbsent').value, 10) || 0;
+      document.getElementById('attDays').value = String(Math.max(0, monthDays - daysAbsent));
+      document.getElementById('attMsg').textContent = '';
+      updateAttendancePreview();
+    });
+
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     document.getElementById('saveAtt').addEventListener('click', async () => {
       const employeeId = document.getElementById('employeeSelect').value;
       const month = document.getElementById('attMonth').value;
       const days_worked = parseInt(document.getElementById('attDays').value, 10);
       const days_absent = parseInt(document.getElementById('attAbsent').value, 10);
+<<<<<<< HEAD
       const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent }) });
       document.getElementById('attMsg').textContent = r.status === 200 ? 'Saved' : `Error: ${JSON.stringify(r.body) || r.status}`;
+=======
+      const extra_deduction_amount = parseFloat(document.getElementById('attExtraDeduction').value) || 0;
+      const penalty_amount = parseFloat(document.getElementById('attPenalty').value) || 0;
+      const r = await fetchJson('/api/payroll/attendance', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ employeeId, month, days_worked, days_absent, extra_deduction_amount, penalty_amount }) });
+      document.getElementById('attMsg').textContent = r.status === 200 ? 'Saved' : `Error: ${JSON.stringify(r.body) || r.status}`;
+      updateAttendancePreview();
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     });
 
     let currentRecords = [];
@@ -172,13 +304,27 @@
     }
 
     function recordsToCsvRows(records) {
+<<<<<<< HEAD
       const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON'];
+=======
+      const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       const rows = [header.join(',')];
       for (const r of records) {
         const emp = r.employee ? r.employee.name : (r.employee || '');
         const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || '');
+<<<<<<< HEAD
         const deductionsJson = JSON.stringify(r.deductions || []);
         const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsJson)];
+=======
+        const deductionsText = (Array.isArray(r.deductions) ? r.deductions : []).map((d) => {
+          const type = d && d.type ? d.type : 'deduction';
+          const amount = Number(d && d.amount ? d.amount : 0).toFixed(2);
+          const reason = d && d.reason ? ` (${d.reason})` : '';
+          return `${type}: ${amount}${reason}`;
+        }).join('; ');
+        const row = [escapeCsv(emp), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)];
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         rows.push(row.join(','));
       }
       return rows;
@@ -269,13 +415,21 @@
 
     // routing
     function showRoute() {
+<<<<<<< HEAD
       const hash = (window.location.hash || '#attendance').replace('#','');
+=======
+      const hash = (window.location.hash || '#dashboard').replace('#','');
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       // hide all pages
       document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
       const el = document.querySelector(`[data-route="${hash}"]`);
       if (el) el.style.display = '';
 
       // perform data loads per route
+<<<<<<< HEAD
+=======
+      if (hash === 'dashboard') { loadDashboard(); }
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       if (hash === 'attendance') { loadEmployees(); }
       if (hash === 'records') { renderRecords(); }
       if (hash === 'run') { loadEmployees(); }
@@ -299,6 +453,7 @@
     document.getElementById('loadDeds').addEventListener('click', () => loadDeductions());
 
     async function loadDeductions() {
+<<<<<<< HEAD
       const r = await fetchJson('/api/payroll/deductions');
       const container = document.getElementById('dedList');
       if (r.status !== 200) { container.textContent = `Error: ${r.body.message || r.status}`; return; }
@@ -306,6 +461,23 @@
       if (!Array.isArray(r.body) || r.body.length === 0) { container.textContent = 'No deductions'; return; }
       const ul = document.createElement('ul');
       r.body.forEach(d => {
+=======
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const url = employeeId
+        ? `/api/payroll/deductions?employeeId=${encodeURIComponent(employeeId)}`
+        : '/api/payroll/deductions';
+      const r = await fetchJson(url);
+      const container = document.getElementById('dedList');
+      if (r.status !== 200) { container.textContent = `Error: ${r.body.message || r.status}`; return; }
+      container.innerHTML = '';
+      const list = Array.isArray(r.body) ? r.body : (r.body && Array.isArray(r.body.data) ? r.body.data : []);
+      if (!Array.isArray(list) || list.length === 0) {
+        container.textContent = employeeId ? 'No deductions for selected employee' : 'No deductions';
+        return;
+      }
+      const ul = document.createElement('ul');
+      list.forEach(d => {
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
         const li = document.createElement('li');
         const emp = d.employee && d.employee.name ? d.employee.name : (d.employee || '');
         li.textContent = `${emp} - ${d.type} - ${d.amount} - ${d.month} - ${d.reason || ''}`;
@@ -319,6 +491,246 @@
       container.appendChild(ul);
     }
 
+<<<<<<< HEAD
+=======
+    async function loadDebtPaymentsLegacy() {
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const listEl = document.getElementById('debtPaymentList');
+      const summaryEl = document.getElementById('debtSummary');
+      if (!employeeId) {
+        summaryEl.textContent = 'Select an employee to view debt payment history.';
+        listEl.textContent = 'No employee selected';
+        return;
+      }
+      const r = await fetchJson(`/api/payroll/debts/payments?employeeId=${encodeURIComponent(employeeId)}`);
+      if (r.status !== 200) {
+        listEl.textContent = `Error: ${r.body && r.body.message ? r.body.message : r.status}`;
+        return;
+      }
+
+      const summary = r.body && r.body.summary ? r.body.summary : null;
+      if (summary) {
+        summaryEl.textContent = `Debt ${formatMoney(summary.total_debt)} • Paid ${formatMoney(summary.total_paid)} • Remaining ${formatMoney(summary.remaining_balance)}`;
+      } else {
+        summaryEl.textContent = '';
+      }
+
+      const list = r.body && Array.isArray(r.body.data) ? r.body.data : [];
+      listEl.innerHTML = '';
+      if (!list.length) {
+        listEl.textContent = 'No debt payments recorded for selected employee.';
+        return;
+      }
+
+      const tbl = document.createElement('table');
+      const head = document.createElement('tr');
+      ['Employee', 'Amount Paid', 'Payment Date', 'Note'].forEach((title) => {
+        const th = document.createElement('th');
+        th.textContent = title;
+        head.appendChild(th);
+      });
+      tbl.appendChild(head);
+      list.forEach((payment) => {
+        const tr = document.createElement('tr');
+        const empName = payment.employee && payment.employee.name ? payment.employee.name : (payment.employee || '--');
+        const paymentDate = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString() : '--';
+        tr.innerHTML = `<td>${empName}</td><td>${formatMoney(payment.amount_paid)}</td><td>${paymentDate}</td><td>${payment.note || ''}</td>`;
+        tbl.appendChild(tr);
+      });
+      listEl.appendChild(tbl);
+    }
+
+    document.getElementById('saveDebtPayment').addEventListener('click', async () => {
+      const employeeId = document.getElementById('dedEmployeeSelect').value;
+      const amountPaid = parseFloat(document.getElementById('debtPayAmount').value || '0');
+      const paymentDate = document.getElementById('debtPayDate').value;
+      const note = document.getElementById('debtPayNote').value || '';
+      const validationEl = document.getElementById('debtPayValidation');
+
+      if (!employeeId) { validationEl.textContent = 'Select an employee first.'; return; }
+      if (!amountPaid || amountPaid <= 0) { validationEl.textContent = 'Amount paid must be greater than 0.'; return; }
+      if (!paymentDate) { validationEl.textContent = 'Date of payment is required.'; return; }
+      validationEl.textContent = '';
+
+      const r = await fetchJson('/api/payroll/debts/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId, amount_paid: amountPaid, payment_date: paymentDate, note })
+      });
+
+      if (r.status === 200 || r.status === 201) {
+        document.getElementById('debtPayAmount').value = '';
+        document.getElementById('debtPayDate').value = '';
+        document.getElementById('debtPayNote').value = '';
+        loadDebtPaymentsLegacy();
+      } else {
+        validationEl.textContent = (r.body && r.body.message) ? r.body.message : 'Failed to record debt payment.';
+      }
+    });
+
+    document.getElementById('loadDebtPayments').addEventListener('click', () => loadDebtPaymentsLegacy());
+
+    function getCurrentMonth() {
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      return `${now.getFullYear()}-${month}`;
+    }
+
+    function formatMoney(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return '--';
+      return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatLegacyRunResult(record, employeeLabel) {
+      const deductions = Array.isArray(record && record.deductions) ? record.deductions : [];
+      const deductionHtml = deductions.length
+        ? `<ul>${deductions.map((deduction) => `<li>${escapeHtml(deduction.type || 'deduction')}: ${escapeHtml(formatMoney(deduction.amount))}${deduction.reason ? ` (${escapeHtml(deduction.reason)})` : ''}</li>`).join('')}</ul>`
+        : '<div>none</div>';
+
+      return `
+        <div style="line-height:1.4">
+          <div><strong>Payroll generated successfully.</strong></div>
+          <div style="color:#666">Salary breakdown (rounded to 2 decimals)</div>
+          <div><strong>Employee:</strong> ${escapeHtml(employeeLabel || 'Employee')}</div>
+          <div><strong>Month:</strong> ${escapeHtml(record && record.month ? record.month : '--')}</div>
+          <div><strong>Gross salary:</strong> ${escapeHtml(formatMoney(record && record.gross_salary))}</div>
+          <div><strong>Total deductions:</strong> ${escapeHtml(formatMoney(record && record.total_deductions))}</div>
+          <div><strong>Net salary:</strong> ${escapeHtml(formatMoney(record && record.net_salary))}</div>
+          <div><strong>Bonuses:</strong> ${escapeHtml(formatMoney(record && record.bonuses))}</div>
+          <div><strong>Withheld amount:</strong> ${escapeHtml(formatMoney(record && record.withheld_amount))}</div>
+          <div><strong>Carryover savings:</strong> ${escapeHtml(formatMoney(record && record.carryover_savings))}</div>
+          <div><strong>Deduction explanation:</strong></div>
+          ${deductionHtml}
+        </div>
+      `;
+    }
+
+    async function updateLegacyRunPreview() {
+      const preview = document.getElementById('runPreviewLegacy');
+      if (!preview) return;
+      const runEmployeeSelect = document.getElementById('runEmployeeSelect');
+      const employeeId = runEmployeeSelect.value;
+      const employeeLabel = runEmployeeSelect.selectedOptions[0] ? runEmployeeSelect.selectedOptions[0].textContent : 'Select employee';
+      const month = document.getElementById('runMonth').value;
+
+      preview.innerHTML = `
+        <div><strong>Preview</strong>: ${escapeHtml(employeeLabel)} • ${escapeHtml(month || 'Select month')}</div>
+        <div>Gross: -- • Total deductions: -- • Net: --</div>
+        <div style="color:#666">Rounding: amounts are displayed to 2 decimals.</div>
+        <div style="color:#666">Deduction explanation: no payroll record found yet for this month.</div>
+      `;
+
+      if (!employeeId || !month) return;
+      const r = await fetchJson(`/api/payroll/records?month=${encodeURIComponent(month)}`);
+      if (r.status !== 200 || !Array.isArray(r.body)) return;
+      const match = r.body.find((rec) => rec.employee && rec.employee._id === employeeId);
+      if (!match) return;
+      const deductions = Array.isArray(match.deductions) ? match.deductions : [];
+      const explanation = deductions.length
+        ? deductions.map((deduction) => `${deduction.type || 'deduction'} ${formatMoney(deduction.amount)}${deduction.reason ? ` (${deduction.reason})` : ''}`).join('; ')
+        : 'None';
+      preview.innerHTML = `
+        <div><strong>Preview</strong>: ${escapeHtml(employeeLabel)} • ${escapeHtml(month)}</div>
+        <div>Gross: ${escapeHtml(formatMoney(match.gross_salary))} • Total deductions: ${escapeHtml(formatMoney(match.total_deductions))} • Net: ${escapeHtml(formatMoney(match.net_salary))}</div>
+        <div style="color:#666">Rounding: amounts are displayed to 2 decimals.</div>
+        <div style="color:#666">Deduction explanation: ${escapeHtml(explanation)}</div>
+      `;
+    }
+
+    function setDashboardValues({ payrollTotal, savingsHeld, debtTotal, debtEmployeeCount }) {
+      document.getElementById('dashPayrollTotal').textContent = formatMoney(payrollTotal);
+      document.getElementById('dashSavingsHeld').textContent = formatMoney(savingsHeld);
+      document.getElementById('dashDebtTotal').textContent = formatMoney(debtTotal);
+      const noun = debtEmployeeCount === 1 ? 'employee' : 'employees';
+      document.getElementById('dashDebtMeta').textContent = ` (${debtEmployeeCount} ${noun})`;
+    }
+
+    async function loadDashboard() {
+      const monthEl = document.getElementById('dashMonth');
+      const statusEl = document.getElementById('dashStatus');
+      if (monthEl && !monthEl.value) monthEl.value = getCurrentMonth();
+      const month = monthEl && monthEl.value ? monthEl.value : getCurrentMonth();
+      statusEl.textContent = 'Loading...';
+
+      const [recordsResp, savingsResp, deductionsResp] = await Promise.all([
+        fetchJson(`/api/payroll/records?month=${encodeURIComponent(month)}`),
+        fetchJson('/api/payroll/savings'),
+        fetchJson('/api/payroll/deductions')
+      ]);
+
+      if (recordsResp.status !== 200 || savingsResp.status !== 200 || deductionsResp.status !== 200) {
+        setDashboardValues({ payrollTotal: 0, savingsHeld: 0, debtTotal: 0, debtEmployeeCount: 0 });
+        statusEl.textContent = 'Error loading dashboard';
+        return;
+      }
+
+      const records = Array.isArray(recordsResp.body) ? recordsResp.body : [];
+      const savings = Array.isArray(savingsResp.body) ? savingsResp.body : [];
+      const deductions = Array.isArray(deductionsResp.body) ? deductionsResp.body : [];
+
+      const payrollTotal = records.reduce((sum, record) => sum + (parseFloat(record.net_salary) || 0), 0);
+      const savingsHeld = savings.reduce((sum, saving) => sum + (parseFloat(saving.accumulated_total) || 0), 0);
+      const debtRows = deductions.filter((deduction) => {
+        const isDebt = deduction.type === 'debt' || deduction.type === 'monthly_debt';
+        if (!isDebt) return false;
+        return !month || deduction.month === month;
+      });
+      const debtTotal = debtRows.reduce((sum, deduction) => sum + (parseFloat(deduction.amount) || 0), 0);
+      const debtEmployeeCount = new Set(
+        debtRows.map((deduction) => deduction.employee && deduction.employee._id ? deduction.employee._id : deduction.employee).filter(Boolean)
+      ).size;
+
+      setDashboardValues({ payrollTotal, savingsHeld, debtTotal, debtEmployeeCount });
+      statusEl.textContent = '';
+    }
+
+    document.getElementById('loadDashboard').addEventListener('click', () => loadDashboard());
+    document.getElementById('dashMonth').addEventListener('change', () => loadDashboard());
+
+    async function payoutSavingsForFestivalLegacy(festival) {
+      const monthEl = document.getElementById('savPayoutMonth');
+      const statusEl = document.getElementById('savPayoutStatus');
+      const month = monthEl && monthEl.value ? monthEl.value : getCurrentMonth();
+      if (monthEl && !monthEl.value) monthEl.value = month;
+      const festivalLabel = festival === 'khmer_new_year' ? 'KNY' : 'Pchum Ben';
+
+      const ok = confirm(`Run one-click savings payout for ${festivalLabel} (${month})?`);
+      if (!ok) return;
+
+      statusEl.textContent = `Running ${festivalLabel} payout...`;
+      const r = await fetchJson('/api/payroll/savings/payout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ festival, month })
+      });
+
+      if (r.status === 200) {
+        const employeesPaid = Number(r.body && r.body.employees_paid ? r.body.employees_paid : 0);
+        const totalPayout = Number(r.body && r.body.total_payout ? r.body.total_payout : 0);
+        statusEl.textContent = `${festivalLabel} payout complete: ${employeesPaid} employee(s), total ${formatMoney(totalPayout)}.`;
+        loadSavings();
+      } else {
+        statusEl.textContent = (r.body && r.body.message) ? r.body.message : `Failed to run ${festivalLabel} payout.`;
+      }
+    }
+
+    document.getElementById('payoutKny').addEventListener('click', () => payoutSavingsForFestivalLegacy('khmer_new_year'));
+    document.getElementById('payoutPchum').addEventListener('click', () => payoutSavingsForFestivalLegacy('pchum_ben'));
+    if (document.getElementById('savPayoutMonth') && !document.getElementById('savPayoutMonth').value) {
+      document.getElementById('savPayoutMonth').value = getCurrentMonth();
+    }
+
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     // Savings UI
     document.getElementById('loadSavings').addEventListener('click', () => loadSavings());
     async function loadSavings() {
@@ -350,19 +762,55 @@
     // init login and employee data
     loadEmployees();
     refreshMe();
+<<<<<<< HEAD
+=======
+    const runZeroAbsenceToggle = document.getElementById('runZeroAbsenceBonusEnabled');
+    const runZeroAbsenceAmount = document.getElementById('runZeroAbsenceBonusAmount');
+    if (runZeroAbsenceToggle && runZeroAbsenceAmount) {
+      runZeroAbsenceToggle.addEventListener('change', () => {
+        runZeroAbsenceAmount.disabled = !runZeroAbsenceToggle.checked;
+        if (!runZeroAbsenceToggle.checked) runZeroAbsenceAmount.value = '0';
+        if (runZeroAbsenceToggle.checked && (!runZeroAbsenceAmount.value || Number(runZeroAbsenceAmount.value) <= 0)) {
+          runZeroAbsenceAmount.value = '10';
+        }
+      });
+    }
+    document.getElementById('runEmployeeSelect').addEventListener('change', updateLegacyRunPreview);
+    document.getElementById('runMonth').addEventListener('input', updateLegacyRunPreview);
+    document.getElementById('runMonth').addEventListener('change', updateLegacyRunPreview);
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
     document.getElementById('runPayrollEmp').addEventListener('click', async () => {
       const employeeId = document.getElementById('runEmployeeSelect').value;
       const month = document.getElementById('runMonth').value;
       const idemp = document.getElementById('runIdemp').value.trim();
       const force = document.getElementById('runForce').checked;
+<<<<<<< HEAD
+=======
+      const zero_absence_bonus_enabled = !!document.getElementById('runZeroAbsenceBonusEnabled').checked;
+      const zero_absence_bonus_amount = parseFloat(document.getElementById('runZeroAbsenceBonusAmount').value) || 0;
+      if (zero_absence_bonus_enabled && zero_absence_bonus_amount <= 0) {
+        document.getElementById('runResp').textContent = 'Error: Enter a bonus amount greater than 0 when zero-absence bonus is enabled.';
+        return;
+      }
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       const apiKey = document.getElementById('apiKey').value.trim();
       const headers = { 'Content-Type': 'application/json' };
       if (apiKey) headers['x-api-key'] = apiKey;
       if (idemp) headers['Idempotency-Key'] = idemp;
+<<<<<<< HEAD
       const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp }) });
       const el = document.getElementById('runResp');
       if (r.status === 200) {
         el.textContent = 'Success: ' + JSON.stringify(r.body.payrollRecord || r.body, null, 2);
+=======
+      const r = await fetchJson('/api/payroll/generate/employee', { method: 'POST', headers, body: JSON.stringify({ employeeId, month, force, idempotencyKey: idemp, zero_absence_bonus_enabled, zero_absence_bonus_amount }) });
+      const el = document.getElementById('runResp');
+      if (r.status === 200) {
+        const record = r.body.payrollRecord || r.body;
+        const employeeLabel = document.getElementById('runEmployeeSelect').selectedOptions[0] ? document.getElementById('runEmployeeSelect').selectedOptions[0].textContent : 'Employee';
+        el.innerHTML = formatLegacyRunResult(record, employeeLabel);
+        updateLegacyRunPreview();
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
       } else {
         el.textContent = 'Error: ' + JSON.stringify(r.body || r.status);
       }
@@ -371,6 +819,10 @@
     // init
     loadEmployees();
     loadRunEmployees();
+<<<<<<< HEAD
+=======
+    updateLegacyRunPreview();
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
 
     document.getElementById('startSched').addEventListener('click', async () => {
       const payroll_group = document.getElementById('schedGroup').value;

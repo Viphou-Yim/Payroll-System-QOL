@@ -1,10 +1,10 @@
 const { calculatePayrollForEmployee } = require('../src/services/payrollService');
 
 describe('payrollService monthly group behavior', () => {
-  test('monthly group pays full base regardless of days worked', () => {
+  test('monthly group prorates pay when days worked is below 30', () => {
     const emp = { base_salary: 30000, has_20_deduction: true, has_10day_holding: false };
     const res = calculatePayrollForEmployee({ employee: emp, daysWorked: 20, staticDeductions: [], saving: null, config: { roundDecimals: 2, flat20Amount: 20, holdingDays: 10, payrollGroup: 'monthly', applyCuts: true } });
-    expect(res.gross).toBe(30000);
+    expect(res.gross).toBe(20000);
   });
 
   test('monthly_debt is not applied before month end', () => {

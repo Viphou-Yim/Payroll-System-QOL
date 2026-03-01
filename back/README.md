@@ -44,6 +44,20 @@ New endpoints
 - Login: POST `/api/auth/login` with `{ username, password }` (defaults to `ADMIN_USER=admin` and `ADMIN_PASSWORD=password` from `.env`). Session is stored in a cookie (no tokens needed). Use `/api/auth/logout` to sign out.
 - Roles: `ADMIN_ROLE` (default `admin`) applied to the env-based login; endpoints require a logged-in session with the appropriate role. For convenience the old `ADMIN_API_KEY` header is still supported as a fallback.
 
+<<<<<<< HEAD
+=======
+Employee creation compatibility rules
+
+- Endpoint: POST `/api/payroll/employees`
+- The server validates `payroll_group` against selected employee flags and rejects incompatible combinations with `400`.
+- Rules:
+	- If `has_debt_deduction=true`, only `payroll_group: "monthly"` is allowed.
+	- If `has_20_deduction=true` or `has_10day_holding=true`, `payroll_group: "no-cut"` is not allowed.
+	- Otherwise `cut`, `no-cut`, and `monthly` are valid.
+- On incompatibility, response includes `compatible_groups`, for example:
+	- `{ "message": "payroll_group \"no-cut\" is incompatible with selected payroll flags", "compatible_groups": ["cut", "monthly"] }`
+
+>>>>>>> 02064596e4d411ca9c62f90695d0cd2ea71f7a8a
 Tests
 
 - Unit tests for payroll calculation are in `back/__tests__/payrollService.test.js`. Run with: `cd back && npm test`.
