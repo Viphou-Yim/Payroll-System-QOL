@@ -200,11 +200,6 @@
                 <option value="car_driver">Car driver</option>
                 <option value="tuk_tuk_driver">Tuk tuk driver</option>
               </select>
-              <label for="empWorkerTag" style="margin-top:10px">Worker tag</label>
-              <select id="empWorkerTag">
-                <option value="">None</option>
-                <option value="worker">Worker</option>
-              </select>
               <label for="empMealMode" style="margin-top:10px">Meal mode</label>
               <select id="empMealMode">
                 <option value="">None</option>
@@ -213,9 +208,13 @@
               </select>
               <label for="empPayCycleDay" style="margin-top:10px">Pay cycle day</label>
               <select id="empPayCycleDay" required>
-                <option value="20">20 (20→20)</option>
-                <option value="1">1 (01→01)</option>
+                <option value="20">Day 20</option>
+                <option value="1">Day 1</option>
+                <option value="custom">Custom date…</option>
+                <option value="clear">Clear</option>
               </select>
+              <input id="empPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Pay cycle runs on a specific day of each month (1-28). Clear first before choosing another custom date.</div>
             </div>
             <div>
               <label for="empPayrollGroup" class="group-label-inline">
@@ -337,6 +336,7 @@
         <div class="form-actions" style="margin-bottom:0">
           <button type="button" id="employeeViewEdit">Edit</button>
           <button type="button" id="employeeViewDelete" class="secondary">Delete</button>
+          <button type="button" id="employeeViewToggleActive" class="secondary">Set Inactive</button>
         </div>
       </div>
     </div>
@@ -381,11 +381,6 @@
                 <option value="car_driver">Car driver</option>
                 <option value="tuk_tuk_driver">Tuk tuk driver</option>
               </select>
-              <label for="employeeEditWorkerTag" style="margin-top:10px">Worker tag</label>
-              <select id="employeeEditWorkerTag">
-                <option value="">None</option>
-                <option value="worker">Worker</option>
-              </select>
               <label for="employeeEditMealMode" style="margin-top:10px">Meal mode</label>
               <select id="employeeEditMealMode">
                 <option value="">None</option>
@@ -394,9 +389,13 @@
               </select>
               <label for="employeeEditPayCycleDay" style="margin-top:10px">Pay cycle day</label>
               <select id="employeeEditPayCycleDay" required>
-                <option value="20">20 (20→20)</option>
-                <option value="1">1 (01→01)</option>
+                <option value="20">Day 20</option>
+                <option value="1">Day 1</option>
+                <option value="custom">Custom date…</option>
+                <option value="clear">Clear</option>
               </select>
+              <input id="employeeEditPayCycleDate" type="date" disabled style="display:none;margin-top:10px" />
+              <div class="field-help">Pay cycle runs on a specific day of each month (1-28). Clear first before choosing another custom date.</div>
             </div>
             <div>
               <label for="employeeEditGroup">Payroll group</label>
@@ -439,6 +438,7 @@
               <input id="attEmpName" placeholder="Name (first or last)" class="emp-search-input" />
               <input id="attEmpPhone" placeholder="Phone" class="emp-search-input" />
               <select id="employeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+              <button id="attViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
             </div>
           </div>
           <div class="form-grid two-col">
@@ -510,18 +510,18 @@
             <label for="recStatus">Status</label>
             <select id="recStatus">
               <option value="">All</option>
-              <option value="paid">Paid (net &gt; 0)</option>
+              <option value="paid">Paid (total &gt; 0)</option>
               <option value="zero">Zero/negative</option>
             </select>
           </div>
         </div>
         <div class="form-grid two-col" style="max-width:520px">
           <div>
-            <label for="recNetMin">Net pay min</label>
+            <label for="recNetMin">Total pay min</label>
             <input id="recNetMin" type="number" step="0.01" placeholder="e.g., 1000" />
           </div>
           <div>
-            <label for="recNetMax">Net pay max</label>
+            <label for="recNetMax">Total pay max</label>
             <input id="recNetMax" type="number" step="0.01" placeholder="e.g., 5000" />
           </div>
         </div>
@@ -553,8 +553,7 @@
                 <th>Gender</th>
                 <th>Group</th>
                 <th>Month</th>
-                <th>Net</th>
-                <th>Gross</th>
+                <th>Total</th>
                 <th>Created</th>
                 <th>Actions</th>
               </tr>
@@ -601,6 +600,7 @@
                 <input id="runEmpName" placeholder="Name (first or last)" class="emp-search-input" />
                 <input id="runEmpPhone" placeholder="Phone" class="emp-search-input" />
                 <select id="runEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+                <button id="runViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
               </div>
             </div>
             <div>
@@ -710,6 +710,7 @@
                 <input id="dedEmpName" placeholder="Name (first or last)" class="emp-search-input" />
                 <input id="dedEmpPhone" placeholder="Phone" class="emp-search-input" />
                 <select id="dedEmployeeSelect" style="margin-top:8px;"><option value="">Select employee...</option></select>
+                <button id="dedViewProfile" type="button" class="secondary" style="margin-top:8px;">View Profile</button>
               </div>
             </div>
             <div>
@@ -816,19 +817,8 @@
         <form id="recSummaryEditForm" class="modal-body rec-edit-form">
           <div class="form-grid two-col">
             <div>
-              <label for="recEditGross">Gross</label>
-              <input id="recEditGross" type="number" step="0.01" required />
-            </div>
-            <div>
               <label for="recEditDeductions">Total deductions</label>
               <input id="recEditDeductions" type="number" step="0.01" required />
-            </div>
-          </div>
-
-          <div class="form-grid two-col">
-            <div>
-              <label for="recEditNet">Net</label>
-              <input id="recEditNet" type="number" step="0.01" required />
             </div>
             <div>
               <label for="recEditBonuses">Bonuses</label>
@@ -838,9 +828,16 @@
 
           <div class="form-grid two-col">
             <div>
+              <label for="recEditNet">Total</label>
+              <input id="recEditNet" type="number" step="0.01" required />
+            </div>
+            <div>
               <label for="recEditWithheld">Withheld</label>
               <input id="recEditWithheld" type="number" step="0.01" required />
             </div>
+          </div>
+
+          <div class="form-grid two-col">
             <div>
               <label for="recEditCarry">Carryover savings</label>
               <input id="recEditCarry" type="number" step="0.01" required />

@@ -61,6 +61,31 @@ function parseDateOnly(value) {
   return parsed;
 }
 
+function normalizeSalaryHistoryInput(input) {
+  if (input === undefined) return { provided: false, value: undefined, error: '' };
+  if (!Array.isArray(input)) {
+    return { provided: true, value: undefined, error: 'salary_history must be an array' };
+  }
+
+  const normalized = [];
+  for (const row of input) {
+    const amount = Number(row?.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { provided: true, value: undefined, error: 'salary_history.amount must be a non-negative number' };
+    }
+
+    const effectiveFrom = parseDateOnly(row?.effective_from);
+    if (!effectiveFrom) {
+      return { provided: true, value: undefined, error: 'salary_history.effective_from must be a valid date (YYYY-MM-DD)' };
+    }
+
+    normalized.push({ amount, effective_from: effectiveFrom });
+  }
+
+  normalized.sort((a, b) => a.effective_from - b.effective_from);
+  return { provided: true, value: normalized, error: '' };
+}
+
 const EMPLOYEE_ROLES = ['employee', 'worker', 'manager', 'car_driver', 'tuk_tuk_driver'];
 
 function normalizeEmployeeRole(roleValue) {
@@ -71,7 +96,7 @@ function normalizeEmployeeRole(roleValue) {
 
 function resolvePayCycleDay({ role, payCycleDay }) {
   const parsed = Number(payCycleDay);
-  if (Number.isFinite(parsed) && (parsed === 1 || parsed === 20)) {
+  if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 28) {
     return parsed;
   }
   return role === 'manager' ? 1 : 20;
@@ -230,6 +255,16 @@ function getEmploymentPeriodConfig(employee, payrollMonth, daysWorked) {
   };
 }
 
+function shouldApplyHoldingForMonth(employee, payrollMonth, applyCuts, priorHoldRecord) {
+  if (!applyCuts) return false;
+  if (priorHoldRecord) return false;
+  const startMonth = toYearMonth(employee?.start_date);
+  if (!startMonth) {
+    return true;
+  }
+  return startMonth === payrollMonth;
+}
+
 function getProfile20Contribution(calc) {
   const applied = Array.isArray(calc?.deductionsApplied) ? calc.deductionsApplied : [];
   const row = applied.find((entry) => entry?.type === 'profile_20_flat');
@@ -293,7 +328,7 @@ async function generatePayrollForMonth(req, res) {
       const saving = await Saving.findOne({ employee: emp._id });
       const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
       const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
-      const applyHoldingForEmployee = applyCutsForGroup && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
+      const applyHoldingForEmployee = shouldApplyHoldingForMonth(emp, month, applyCutsForGroup, priorHoldRecord);
 
       const calc = payrollService.calculatePayrollForEmployee({
         employee: emp,
@@ -309,6 +344,8 @@ async function generatePayrollForMonth(req, res) {
           applyHolding: applyHoldingForEmployee,
           applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
           useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
+          payPeriodStart: attendanceSummary.periodStart,
+          payPeriodEnd: attendanceSummary.periodEnd,
           payrollGroup: payroll_group
         }
       });
@@ -423,7 +460,7 @@ async function generatePayrollForEmployee(req, res) {
     const saving = await Saving.findOne({ employee: emp._id });
     const employmentPeriodConfig = getEmploymentPeriodConfig(emp, month, daysWorked);
     const priorHoldRecord = await PayrollRecord.findOne({ employee: emp._id, withheld_amount: { $gt: 0 } });
-    const applyHoldingForEmployee = applyCutsForEmployee && employmentPeriodConfig.applyProfileDeductionsAndSavings && !priorHoldRecord;
+    const applyHoldingForEmployee = shouldApplyHoldingForMonth(emp, month, applyCutsForEmployee, priorHoldRecord);
 
     const calc = payrollService.calculatePayrollForEmployee({
       employee: emp,
@@ -439,6 +476,8 @@ async function generatePayrollForEmployee(req, res) {
         applyHolding: applyHoldingForEmployee,
         applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
         useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
+        payPeriodStart: attendanceSummary.periodStart,
+        payPeriodEnd: attendanceSummary.periodEnd,
         payrollGroup: empPayrollGroup
       }
     });
@@ -729,7 +768,7 @@ async function getHolds(req, res) {
 // Employees list for admin UI
 async function listEmployees(req, res) {
   try {
-    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance base_salary');
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance base_salary');
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -740,7 +779,7 @@ async function listEmployees(req, res) {
 // Employees list including active/inactive (for employees management table)
 async function listAllEmployees(req, res) {
   try {
-    const employees = await Employee.find({}).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
+    const employees = await Employee.find({}).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date').sort({ name: 1 });
     return res.json(employees);
   } catch (err) {
     console.error(err);
@@ -764,6 +803,7 @@ async function updateEmployee(req, res) {
       meal_mode,
       pay_cycle_day,
       base_salary,
+      salary_history,
       payroll_group,
       has_20_deduction,
       has_10day_holding,
@@ -783,9 +823,11 @@ async function updateEmployee(req, res) {
     const nextHas20 = has_20_deduction === undefined ? !!employee.has_20_deduction : !!has_20_deduction;
     const nextHas10dayHolding = has_10day_holding === undefined ? !!employee.has_10day_holding : !!has_10day_holding;
     const nextHasDebt = has_debt_deduction === undefined ? !!employee.has_debt_deduction : !!has_debt_deduction;
+    const salaryHistoryResult = normalizeSalaryHistoryInput(salary_history);
 
     if (!nextName) return res.status(400).json({ message: 'name is required' });
     if (Number.isNaN(nextBaseSalary)) return res.status(400).json({ message: 'base_salary must be a number' });
+    if (salaryHistoryResult.error) return res.status(400).json({ message: salaryHistoryResult.error });
     if (nextGender && !['male', 'female'].includes(nextGender)) {
       return res.status(400).json({ message: 'gender must be one of: male, female' });
     }
@@ -793,7 +835,7 @@ async function updateEmployee(req, res) {
     if (nextRole === 'worker' && nextWorkerTag && nextWorkerTag !== 'worker') {
       return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
     }
-    if (nextRole === 'worker' && nextMealMode && !['eat_in', 'eat_out'].includes(nextMealMode)) {
+    if (nextMealMode && !['eat_in', 'eat_out'].includes(nextMealMode)) {
       return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
     }
 
@@ -824,7 +866,7 @@ async function updateEmployee(req, res) {
       gender: nextGender || undefined,
       role: nextRole,
       worker_tag: nextRole === 'worker' ? (nextWorkerTag || 'worker') : undefined,
-      meal_mode: nextRole === 'worker' ? (nextMealMode || undefined) : undefined,
+      meal_mode: nextMealMode || undefined,
       pay_cycle_day: nextPayCycleDay,
       base_salary: nextBaseSalary,
       payroll_group: nextGroup,
@@ -836,9 +878,12 @@ async function updateEmployee(req, res) {
     if (start_date !== undefined) {
       update.start_date = start_date ? new Date(start_date) : null;
     }
+    if (salaryHistoryResult.provided) {
+      update.salary_history = salaryHistoryResult.value;
+    }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
-      .select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
+      .select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active base_salary has_20_deduction has_10day_holding has_debt_deduction start_date');
 
     return res.json({ message: 'Employee updated', employee: updated });
   } catch (err) {
@@ -860,7 +905,7 @@ async function updateEmployeeStatus(req, res) {
       id,
       { active },
       { new: true, runValidators: true }
-    ).select('_id name payroll_group phone gender role worker_tag meal_mode pay_cycle_day get_together_balance active');
+    ).select('_id name payroll_group phone gender role meal_mode pay_cycle_day get_together_balance active');
 
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
@@ -1004,6 +1049,7 @@ async function createEmployee(req, res) {
       meal_mode,
       pay_cycle_day,
       base_salary,
+      salary_history,
       payroll_group,
       has_20_deduction = false,
       has_10day_holding = false,
@@ -1015,6 +1061,10 @@ async function createEmployee(req, res) {
     if (!name || typeof name !== 'string') return res.status(400).json({ message: 'name is required' });
     if (base_salary === undefined || base_salary === null || Number.isNaN(Number(base_salary))) {
       return res.status(400).json({ message: 'base_salary is required and must be a number' });
+    }
+    const salaryHistoryResult = normalizeSalaryHistoryInput(salary_history);
+    if (salaryHistoryResult.error) {
+      return res.status(400).json({ message: salaryHistoryResult.error });
     }
     const pg = String(payroll_group || '').trim();
     if (!pg) return res.status(400).json({ message: 'payroll_group is required' });
@@ -1034,7 +1084,7 @@ async function createEmployee(req, res) {
     if (normalizedRole === 'worker' && normalizedWorkerTag && normalizedWorkerTag !== 'worker') {
       return res.status(400).json({ message: 'worker_tag must be "worker" for worker role' });
     }
-    if (normalizedRole === 'worker' && normalizedMealMode && !['eat_in', 'eat_out'].includes(normalizedMealMode)) {
+    if (normalizedMealMode && !['eat_in', 'eat_out'].includes(normalizedMealMode)) {
       return res.status(400).json({ message: 'meal_mode must be one of: eat_in, eat_out' });
     }
     const resolvedPayCycleDay = resolvePayCycleDay({ role: normalizedRole, payCycleDay: pay_cycle_day });
@@ -1065,9 +1115,10 @@ async function createEmployee(req, res) {
       gender: normalizedGender || undefined,
       role: normalizedRole,
       worker_tag: normalizedRole === 'worker' ? (normalizedWorkerTag || 'worker') : undefined,
-      meal_mode: normalizedRole === 'worker' ? (normalizedMealMode || undefined) : undefined,
+      meal_mode: normalizedMealMode || undefined,
       pay_cycle_day: resolvedPayCycleDay,
       base_salary: Number(base_salary),
+      salary_history: salaryHistoryResult.provided ? salaryHistoryResult.value : [],
       payroll_group: pg,
       has_20_deduction: has20,
       has_10day_holding: has10dayHolding,
@@ -1076,7 +1127,12 @@ async function createEmployee(req, res) {
       active: !!active
     });
 
-    return res.status(201).json({ message: 'Employee created', employee: emp });
+    const created = emp && typeof emp.toObject === 'function' ? emp.toObject() : { ...(emp || {}) };
+    if (created && Object.prototype.hasOwnProperty.call(created, 'worker_tag')) {
+      delete created.worker_tag;
+    }
+
+    return res.status(201).json({ message: 'Employee created', employee: created });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });

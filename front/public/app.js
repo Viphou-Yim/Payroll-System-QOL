@@ -476,7 +476,6 @@
       `Phone: ${employee?.phone || '--'}`,
       `Gender: ${employee?.gender || '--'}`,
       `Role: ${employee?.role || '--'}`,
-      `Worker tag: ${employee?.worker_tag || '--'}`,
       `Meal mode: ${employee?.meal_mode || '--'}`,
       `Pay cycle day: ${employee?.pay_cycle_day || '--'}`,
       `Get together balance: ${formatMoney(employee?.get_together_balance || 0)}`,
@@ -491,15 +490,46 @@
     ].join('\n');
   }
 
+  function getProfile20Stats(records, employeeId) {
+    const list = Array.isArray(records) ? records : [];
+    let appliedCount = 0;
+    let totalAmount = 0;
+    list.forEach((record) => {
+      const matchesEmployee = String(record?.employee?._id || record?.employee || '') === String(employeeId || '');
+      if (!matchesEmployee) return;
+      const deductions = Array.isArray(record?.deductions) ? record.deductions : [];
+      deductions.forEach((deduction) => {
+        if (deduction?.type !== 'profile_20_flat') return;
+        appliedCount += 1;
+        totalAmount += Number(deduction?.amount || 0);
+      });
+    });
+    return {
+      appliedCount,
+      totalAmount
+    };
+  }
+
   const employeeViewModal = $('employeeViewModal');
   const employeeEditModal = $('employeeEditModal');
   let activeEmployeeView = null;
 
-  function openEmployeeView(employee) {
+  async function openEmployeeView(employee) {
     if (!employeeViewModal) return;
     activeEmployeeView = employee || null;
     const body = $('employeeViewBody');
-    if (body) body.textContent = formatEmployeeDetails(employee);
+    if (body) {
+      body.textContent = `${formatEmployeeDetails(employee)}\n$20 deduction count: loading...\n$20 deduction total: loading...`;
+      const recordsResp = await fetchJson('/api/payroll/records', { skipSessionHandling: true });
+      if (recordsResp.status === 200 && Array.isArray(recordsResp.body)) {
+        const profile20Stats = getProfile20Stats(recordsResp.body, employee?._id);
+        body.textContent = `${formatEmployeeDetails(employee)}\n$20 deduction count: ${profile20Stats.appliedCount}\n$20 deduction total: ${formatMoney(profile20Stats.totalAmount)}`;
+      } else {
+        body.textContent = `${formatEmployeeDetails(employee)}\n$20 deduction count: unavailable\n$20 deduction total: unavailable`;
+      }
+    }
+    const toggleBtn = $('employeeViewToggleActive');
+    if (toggleBtn) toggleBtn.textContent = employee?.active ? 'Set Inactive' : 'Set Active';
     employeeViewModal.setAttribute('aria-hidden', 'false');
   }
 
@@ -515,9 +545,27 @@
     $('employeeEditPhone').value = employee.phone || '';
     $('employeeEditGender').value = employee.gender || 'male';
     $('employeeEditRole').value = employee.role || 'employee';
-    $('employeeEditWorkerTag').value = employee.worker_tag || '';
     $('employeeEditMealMode').value = employee.meal_mode || '';
-    $('employeeEditPayCycleDay').value = String(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
+    const editPayCycleDay = Number(employee.pay_cycle_day || (employee.role === 'manager' ? 1 : 20));
+    const editPayCycleDayEl = $('employeeEditPayCycleDay');
+    const editPayCycleDateEl = $('employeeEditPayCycleDate');
+    if (editPayCycleDayEl) {
+      const isCustomDay = Number.isFinite(editPayCycleDay) && editPayCycleDay >= 1 && editPayCycleDay <= 28 && ![1, 20].includes(editPayCycleDay);
+      editPayCycleDayEl.value = isCustomDay ? 'custom' : String([1, 20].includes(editPayCycleDay) ? editPayCycleDay : 20);
+      if (editPayCycleDateEl) {
+        editPayCycleDateEl.disabled = !isCustomDay;
+        editPayCycleDateEl.style.display = 'none';
+        if (isCustomDay) {
+          const now = new Date();
+          const month = String((now.getMonth() + 1)).padStart(2, '0');
+          const day = String(editPayCycleDay).padStart(2, '0');
+          editPayCycleDateEl.value = `${now.getFullYear()}-${month}-${day}`;
+        } else {
+          editPayCycleDateEl.value = '';
+        }
+      }
+      setCustomPayCycleOptionLabel(editPayCycleDayEl, editPayCycleDateEl?.value || '');
+    }
     $('employeeEditRole').dispatchEvent(new Event('change'));
     $('employeeEditSalary').value = employee.base_salary ?? 0;
     $('employeeEditGroup').value = employee.payroll_group || 'cut';
@@ -741,6 +789,24 @@
     if (!activeEmployeeView) return;
     await deleteEmployee(activeEmployeeView);
   });
+  $('employeeViewToggleActive')?.addEventListener('click', async () => {
+    if (!activeEmployeeView?._id) return;
+    const nextActive = !activeEmployeeView.active;
+    const r = await fetchJson(`/api/payroll/employees/${activeEmployeeView._id}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ active: nextActive })
+    });
+    if (r.status !== 200) {
+      showToast(r.body?.message || 'Failed to update status');
+      return;
+    }
+    activeEmployeeView = { ...activeEmployeeView, active: nextActive };
+    showToast(nextActive ? 'Employee activated' : 'Employee set inactive');
+    closeEmployeeView();
+    await loadEmployeesForList();
+    await loadEmployees();
+  });
 
   if (employeeEditModal) {
     employeeEditModal.addEventListener('click', (e) => {
@@ -748,24 +814,111 @@
     });
   }
 
+  function derivePayCycleDayFromCustomDate(dateValue) {
+    if (!dateValue) return NaN;
+    const [year, month, day] = String(dateValue).split('-').map(Number);
+    if (!year || !month || !day) return NaN;
+    return day;
+  }
+
+  function getDefaultPayCycleDayForRole(roleValue) {
+    const role = String(roleValue || '').trim().toLowerCase();
+    return role === 'manager' ? '1' : '20';
+  }
+
+  function formatDateAsDdMmYyyy(dateValue) {
+    if (!dateValue) return '';
+    const [, , day] = String(dateValue).split('-');
+    const dayNumber = Number(day);
+    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 31) return '';
+    return `Day ${dayNumber}`;
+  }
+
+  const CUSTOM_PAY_CYCLE_DISPLAY_VALUE = '__custom_selected__';
+
+  function isCustomPayCycleSelected(value) {
+    return value === 'custom' || value === CUSTOM_PAY_CYCLE_DISPLAY_VALUE;
+  }
+
+  function setCustomPayCycleOptionLabel(selectEl, dateValue) {
+    if (!selectEl) return;
+    const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
+    if (!customOpt) return;
+    customOpt.textContent = 'Custom date…';
+
+    const pretty = formatDateAsDdMmYyyy(dateValue);
+    const existingDisplayOpt = Array.from(selectEl.options || []).find((opt) => opt.value === CUSTOM_PAY_CYCLE_DISPLAY_VALUE);
+
+    if (!pretty) {
+      if (existingDisplayOpt) existingDisplayOpt.remove();
+      return;
+    }
+
+    const displayOpt = existingDisplayOpt || document.createElement('option');
+    displayOpt.value = CUSTOM_PAY_CYCLE_DISPLAY_VALUE;
+    displayOpt.textContent = pretty;
+    displayOpt.disabled = false;
+    displayOpt.hidden = true;
+    if (!existingDisplayOpt) {
+      selectEl.insertBefore(displayOpt, customOpt);
+    }
+
+    if (isCustomPayCycleSelected(selectEl.value)) {
+      selectEl.value = CUSTOM_PAY_CYCLE_DISPLAY_VALUE;
+    }
+  }
+
+  function openDatePickerIfAvailable(dateEl) {
+    if (!dateEl || typeof dateEl.showPicker !== 'function') return false;
+    dateEl.showPicker();
+    return true;
+  }
+
   $('employeeEditRole')?.addEventListener('change', () => {
     const role = String($('employeeEditRole')?.value || '').trim().toLowerCase();
-    const isWorker = role === 'worker';
-    const workerTagEl = $('employeeEditWorkerTag');
-    const mealModeEl = $('employeeEditMealMode');
     const payCycleEl = $('employeeEditPayCycleDay');
-    if (workerTagEl) {
-      workerTagEl.disabled = !isWorker;
-      if (!isWorker) workerTagEl.value = '';
-      if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
-    }
-    if (mealModeEl) {
-      mealModeEl.disabled = !isWorker;
-      if (!isWorker) mealModeEl.value = '';
-    }
     if (payCycleEl) {
-      payCycleEl.value = role === 'manager' ? '1' : '20';
+      if (!isCustomPayCycleSelected(payCycleEl.value)) {
+        payCycleEl.value = getDefaultPayCycleDayForRole(role);
+      }
     }
+  });
+  $('employeeEditPayCycleDay')?.addEventListener('change', () => {
+    const selectEl = $('employeeEditPayCycleDay');
+    const dateEl = $('employeeEditPayCycleDate');
+    if (!selectEl || !dateEl) return;
+
+    if (selectEl.value === 'clear') {
+      dateEl.value = '';
+      setCustomPayCycleOptionLabel(selectEl, '');
+      selectEl.value = getDefaultPayCycleDayForRole($('employeeEditRole')?.value || '');
+    }
+
+    const isCustom = isCustomPayCycleSelected(selectEl.value);
+    if (dateEl) {
+      dateEl.disabled = !isCustom;
+      dateEl.style.display = 'none';
+      if (isCustom) {
+        openDatePickerIfAvailable(dateEl);
+      } else {
+        dateEl.value = '';
+      }
+      setCustomPayCycleOptionLabel(selectEl, dateEl.value);
+    }
+  });
+  $('employeeEditPayCycleDate')?.addEventListener('change', () => {
+    const selectEl = $('employeeEditPayCycleDay');
+    const dateVal = String($('employeeEditPayCycleDate')?.value || '');
+    setCustomPayCycleOptionLabel(selectEl, dateVal);
+  });
+  $('employeeEditPayCycleDay')?.addEventListener('focus', () => {
+    const selectEl = $('employeeEditPayCycleDay');
+    const dateEl = $('employeeEditPayCycleDate');
+    if (!selectEl || !dateEl) return;
+    if (!isCustomPayCycleSelected(selectEl.value)) return;
+    setTimeout(() => {
+      openDatePickerIfAvailable(dateEl);
+    }, 0);
   });
   $('employeeEditClose')?.addEventListener('click', closeEmployeeEdit);
   $('employeeEditCancel')?.addEventListener('click', closeEmployeeEdit);
@@ -777,9 +930,12 @@
     const phone = String($('employeeEditPhone').value || '').trim();
     const gender = String($('employeeEditGender').value || '').trim().toLowerCase();
     const role = String($('employeeEditRole').value || '').trim().toLowerCase();
-    const worker_tag = String($('employeeEditWorkerTag').value || '').trim().toLowerCase();
     const meal_mode = String($('employeeEditMealMode').value || '').trim().toLowerCase();
-    const pay_cycle_day = Number($('employeeEditPayCycleDay').value || '20');
+    const customPayCycle = isCustomPayCycleSelected($('employeeEditPayCycleDay')?.value || '');
+    const customPayCycleDate = String($('employeeEditPayCycleDate')?.value || '').trim();
+    const pay_cycle_day = customPayCycle
+      ? derivePayCycleDayFromCustomDate(customPayCycleDate)
+      : Number($('employeeEditPayCycleDay').value || '20');
     const base_salary = parseFloat($('employeeEditSalary').value);
     const payroll_group = String($('employeeEditGroup').value || '').trim();
     const has_20_deduction = !!$('employeeEditHas20').checked;
@@ -809,8 +965,10 @@
       if (status) status.textContent = 'Role is invalid.';
       return;
     }
-    if (![1, 20].includes(pay_cycle_day)) {
-      if (status) status.textContent = 'Pay cycle day must be 1 or 20.';
+    if (!Number.isFinite(pay_cycle_day) || pay_cycle_day < 1 || pay_cycle_day > 28) {
+      if (status) status.textContent = customPayCycle
+        ? 'Custom pay-cycle date is required and day must be between 1 and 28.'
+        : 'Pay cycle day must be between 1 and 28.';
       return;
     }
     if (!['cut', 'no-cut', 'monthly'].includes(payroll_group)) {
@@ -827,7 +985,6 @@
         phone,
         gender,
         role,
-        worker_tag,
         meal_mode,
         pay_cycle_day,
         base_salary,
@@ -898,16 +1055,16 @@
     }).join('; ');
   }
   function downloadCsv(filename, rows) { const csv = rows.join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1000); }
-  function recordsToCsvRows(records) { const header = ['Employee','Gender','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const gender = r.employee?.gender || ''; const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsText = formatDeductionsText(r.deductions); const row = [escapeCsv(emp), escapeCsv(gender), escapeCsv(empId), escapeCsv(r.month), escapeCsv(r.gross_salary), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)]; rows.push(row.join(',')); } return rows; }
+  function recordsToCsvRows(records) { const header = ['Employee','Gender','EmployeeId','Month','SubtotalEarnings','TotalDeductions','Total','Withheld','CarryoverSavings','Bonuses','Deductions']; const rows = [header.join(',')]; for (const r of records) { const emp = r.employee ? r.employee.name : (r.employee || ''); const gender = r.employee?.gender || ''; const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || ''); const deductionsText = formatDeductionsText(r.deductions); const subtotal = Number(r.gross_salary || 0) + Number(r.bonuses || 0); const row = [escapeCsv(emp), escapeCsv(gender), escapeCsv(empId), escapeCsv(r.month), escapeCsv(subtotal), escapeCsv(r.total_deductions), escapeCsv(r.net_salary), escapeCsv(r.withheld_amount), escapeCsv(r.carryover_savings), escapeCsv(r.bonuses), escapeCsv(deductionsText)]; rows.push(row.join(',')); } return rows; }
   function recordsToExportRows(records) {
     return (records || []).map((r) => ({
       Employee: r.employee ? r.employee.name : (r.employee || ''),
       Gender: r.employee?.gender || '',
       EmployeeId: r.employee && r.employee._id ? r.employee._id : (r.employee || ''),
       Month: r.month || '',
-      Gross: Number(r.gross_salary || 0),
+      SubtotalEarnings: Number(r.gross_salary || 0) + Number(r.bonuses || 0),
       TotalDeductions: Number(r.total_deductions || 0),
-      Net: Number(r.net_salary || 0),
+      Total: Number(r.net_salary || 0),
       Withheld: Number(r.withheld_amount || 0),
       CarryoverSavings: Number(r.carryover_savings || 0),
       Bonuses: Number(r.bonuses || 0),
@@ -932,7 +1089,7 @@
       return;
     }
     const rows = recordsToExportRows(records);
-    const headers = ['Employee','Gender','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','Deductions'];
+    const headers = ['Employee','Gender','EmployeeId','Month','SubtotalEarnings','TotalDeductions','Total','Withheld','CarryoverSavings','Bonuses','Deductions'];
     const body = rows.map((row) => headers.map((h) => row[h]));
     const doc = new jsPdfLib({ orientation: 'landscape' });
     doc.setFontSize(12);
@@ -1014,13 +1171,13 @@
     const tbl = document.createElement('table');
     const thead = document.createElement('thead');
     const h = document.createElement('tr');
-    ['Employee','Gender','Month','Gross','Deductions','Net','Actions'].forEach(t => { const th = document.createElement('th'); th.textContent = t; h.appendChild(th); });
+    ['Employee','Gender','Month','Deductions','Total','Actions'].forEach(t => { const th = document.createElement('th'); th.textContent = t; h.appendChild(th); });
     thead.appendChild(h);
     tbl.appendChild(thead);
     const tbody = document.createElement('tbody');
     records.forEach(rec => {
       const tr = document.createElement('tr'); const emp = rec.employee ? rec.employee.name : (rec.employee || ''); const gender = rec.employee?.gender || '--'; const viewBtn = `<button class="viewBtn">View</button>`;
-      tr.innerHTML = `<td>${emp}</td><td>${gender}</td><td>${rec.month}</td><td>${rec.gross_salary}</td><td>${rec.total_deductions}</td><td>${rec.net_salary}</td><td>${viewBtn}</td>`;
+      tr.innerHTML = `<td>${emp}</td><td>${gender}</td><td>${rec.month}</td><td>${rec.total_deductions}</td><td>${rec.net_salary}</td><td>${viewBtn}</td>`;
       tr.querySelector('.viewBtn').addEventListener('click', () => showRecordDetails(rec));
       tbody.appendChild(tr);
     });
@@ -1376,7 +1533,7 @@
     if (slice.length === 0) {
       const tr = document.createElement('tr');
       const td = document.createElement('td');
-      td.colSpan = 9;
+      td.colSpan = 8;
       td.textContent = 'No records found.';
       tr.appendChild(td);
       recSumBody.appendChild(tr);
@@ -1394,7 +1551,6 @@
         <td>${group}</td>
         <td>${r.month || '--'}</td>
         <td>${r.net_salary ?? '--'}</td>
-        <td>${r.gross_salary ?? '--'}</td>
         <td>${formatDate(r.createdAt)}</td>
         <td></td>
       `;
@@ -1575,14 +1731,14 @@
       const emp = record.employee?.name || record.employee || '--';
       const gender = record.employee?.gender || '--';
       const group = record.employee?.payroll_group || '--';
-      body.textContent = `Payroll ID: ${record._id}\nEmployee: ${emp}\nGender: ${gender}\nGroup: ${group}\nMonth: ${record.month}\nGross: ${record.gross_salary}\nTotal deductions: ${record.total_deductions}\nNet: ${record.net_salary}\nBonuses: ${record.bonuses}\nWithheld: ${record.withheld_amount}\nCarryover savings: ${record.carryover_savings}\nCreated: ${formatDate(record.createdAt)}`;
+      const subtotalEarnings = Number(record.gross_salary || 0) + Number(record.bonuses || 0);
+      body.textContent = `Payroll ID: ${record._id}\nEmployee: ${emp}\nGender: ${gender}\nGroup: ${group}\nMonth: ${record.month}\nSubtotal earnings: ${subtotalEarnings}\nTotal deductions: ${record.total_deductions}\nTotal: ${record.net_salary}\nBonuses: ${record.bonuses}\nWithheld: ${record.withheld_amount}\nCarryover savings: ${record.carryover_savings}\nCreated: ${formatDate(record.createdAt)}`;
     }
     if (viewModal) viewModal.setAttribute('aria-hidden', 'false');
   }
   function closeSummaryView() { if (viewModal) viewModal.setAttribute('aria-hidden', 'true'); }
   function openSummaryEdit(record) {
     currentSummaryRecord = record;
-    if ($('recEditGross')) $('recEditGross').value = record.gross_salary ?? 0;
     if ($('recEditDeductions')) $('recEditDeductions').value = record.total_deductions ?? 0;
     if ($('recEditNet')) $('recEditNet').value = record.net_salary ?? 0;
     if ($('recEditBonuses')) $('recEditBonuses').value = record.bonuses ?? 0;
@@ -1639,7 +1795,6 @@
       e.preventDefault();
       if (!currentSummaryRecord) return;
       const payload = {
-        gross_salary: parseFloat($('recEditGross').value),
         total_deductions: parseFloat($('recEditDeductions').value),
         net_salary: parseFloat($('recEditNet').value),
         bonuses: parseFloat($('recEditBonuses').value),
@@ -2102,15 +2257,17 @@
       `;
     }
 
+    const subtotalEarnings = Number(record?.gross_salary || 0) + Number(record?.bonuses || 0);
+
     return `
       <div class="run-result success">
         <div class="run-title">Payroll generated successfully.</div>
         <div class="run-row run-note">Salary breakdown (rounded to 2 decimals)</div>
         <div class="run-row"><span class="run-label">Employee:</span> <strong class="run-employee">${escapeHtml(employeeText)}</strong></div>
         <div class="run-row"><span class="run-label">Month:</span> ${escapeHtml(monthText)}</div>
-        <div class="run-row"><span class="run-label">Gross salary:</span> ${amountHtml(record?.gross_salary, 'revenue')}</div>
+        <div class="run-row"><span class="run-label">Subtotal earnings:</span> ${amountHtml(subtotalEarnings, 'revenue')}</div>
         <div class="run-row"><span class="run-label">Total deductions:</span> ${amountHtml(record?.total_deductions, 'owe')}</div>
-        <div class="run-row"><span class="run-label">Net salary:</span> ${amountHtml(record?.net_salary, 'profit')}</div>
+        <div class="run-row"><span class="run-label">Total:</span> ${amountHtml(record?.net_salary, 'profit')}</div>
         <div class="run-row"><span class="run-label">Bonuses:</span> ${amountHtml(record?.bonuses, 'profit')}</div>
         <div class="run-row"><span class="run-label">Withheld amount:</span> ${amountHtml(record?.withheld_amount, 'hold')}</div>
         <div class="run-row"><span class="run-label">Carryover savings:</span> ${amountHtml(record?.carryover_savings, 'hold')}</div>
@@ -2128,7 +2285,7 @@
     const empName = context.label;
     preview.innerHTML = `
       <div><strong>Preview</strong>: ${escapeHtml(empName)} • ${escapeHtml(month || 'Select month')}</div>
-      <div>Gross: -- • Total deductions: -- • Net: --</div>
+      <div>Subtotal earnings: -- • Total deductions: -- • Total: --</div>
       <div class="run-note">Rounding: amounts are displayed to 2 decimals.</div>
       <div class="run-note">Deduction explanation: no payroll record found yet for this month.</div>
     `;
@@ -2145,7 +2302,7 @@
         : 'None';
       preview.innerHTML = `
         <div><strong>Preview</strong>: ${escapeHtml(empName)} • ${escapeHtml(month)}</div>
-        <div>Gross: ${escapeHtml(formatMoney(match.gross_salary))} • Total deductions: ${escapeHtml(formatMoney(match.total_deductions))} • Net: ${escapeHtml(formatMoney(match.net_salary))}</div>
+        <div>Subtotal earnings: ${escapeHtml(formatMoney(Number(match.gross_salary || 0) + Number(match.bonuses || 0)))} • Total deductions: ${escapeHtml(formatMoney(match.total_deductions))} • Total: ${escapeHtml(formatMoney(match.net_salary))}</div>
         <div class="run-note">Rounding: amounts are displayed to 2 decimals.</div>
         <div class="run-note">Deduction explanation: ${escapeHtml(explanation)}</div>
       `;
@@ -2155,6 +2312,52 @@
   $('runEmpName')?.addEventListener('input', updateRunPreview);
   $('runEmpPhone')?.addEventListener('input', updateRunPreview);
   $('runMonth').addEventListener('change', updateRunPreview);
+  $('attViewProfile')?.addEventListener('click', async () => {
+    const employeeId = $('employeeSelect')?.value;
+    if (!employeeId) {
+      showToast('Select employee first');
+      return;
+    }
+    const employee = allEmployees.find((emp) => String(emp._id) === String(employeeId));
+    if (!employee) {
+      showToast('Employee profile not found');
+      return;
+    }
+    await openEmployeeView(employee);
+  });
+  $('runViewProfile')?.addEventListener('click', async () => {
+    const employeeId = $('runEmployeeSelect')?.value;
+    if (!employeeId) {
+      showToast('Select employee first');
+      return;
+    }
+    const employee = allEmployees.find((emp) => String(emp._id) === String(employeeId));
+    if (!employee) {
+      showToast('Employee profile not found');
+      return;
+    }
+    await openEmployeeView(employee);
+  });
+  $('dedViewProfile')?.addEventListener('click', async () => {
+    const employeeId = $('dedEmployeeSelect')?.value;
+    if (!employeeId) {
+      showToast('Select employee first');
+      return;
+    }
+    const employee = allEmployees.find((emp) => String(emp._id) === String(employeeId));
+    if (!employee) {
+      const allResp = await fetchJson('/api/payroll/employees/all', { skipSessionHandling: true });
+      const all = Array.isArray(allResp.body) ? allResp.body : [];
+      const exact = all.find((emp) => String(emp._id) === String(employeeId));
+      if (!exact) {
+        showToast('Employee profile not found');
+        return;
+      }
+      await openEmployeeView(exact);
+      return;
+    }
+    await openEmployeeView(employee);
+  });
   const forceToggle = $('runForce');
   const forceWarning = $('runForceWarning');
   const zeroAbsenceBonusToggle = $('runZeroAbsenceBonusEnabled');
@@ -2325,29 +2528,29 @@
     const has10HoldEl = document.getElementById('empHas10Hold');
     const hasDebtEl = document.getElementById('empHasDebt');
     const roleEl = document.getElementById('empRole');
-    const workerTagEl = document.getElementById('empWorkerTag');
     const mealModeEl = document.getElementById('empMealMode');
     const payCycleDayEl = document.getElementById('empPayCycleDay');
+    const payCycleDateEl = document.getElementById('empPayCycleDate');
 
     function syncRoleDependentFields() {
       const role = String(roleEl?.value || 'employee').trim().toLowerCase();
-      const isWorker = role === 'worker';
-      const isManager = role === 'manager';
-
-      if (workerTagEl) {
-        workerTagEl.disabled = !isWorker;
-        if (!isWorker) workerTagEl.value = '';
-        if (isWorker && !workerTagEl.value) workerTagEl.value = 'worker';
-      }
-
-      if (mealModeEl) {
-        mealModeEl.disabled = !isWorker;
-        if (!isWorker) mealModeEl.value = '';
-      }
 
       if (payCycleDayEl) {
-        payCycleDayEl.value = isManager ? '1' : '20';
+        if (!isCustomPayCycleSelected(payCycleDayEl.value)) {
+          payCycleDayEl.value = getDefaultPayCycleDayForRole(role);
+        }
       }
+    }
+
+    function syncCustomPayCycleUi() {
+      if (!payCycleDateEl) return;
+      const enabled = isCustomPayCycleSelected(payCycleDayEl?.value || '');
+      payCycleDateEl.disabled = !enabled;
+      payCycleDateEl.style.display = 'none';
+      if (!enabled) {
+        payCycleDateEl.value = '';
+      }
+      setCustomPayCycleOptionLabel(payCycleDayEl, payCycleDateEl.value);
     }
 
     function getGroupAvailability() {
@@ -2461,6 +2664,7 @@
       if (allowGroupMix) allowGroupMix.checked = false;
       updateGroupUiFromConditions();
       syncRoleDependentFields();
+      syncCustomPayCycleUi();
       if (msg) msg.textContent = '';
     };
 
@@ -2474,6 +2678,32 @@
 
     if (roleEl) {
       roleEl.addEventListener('change', syncRoleDependentFields);
+    }
+    if (payCycleDayEl) {
+      payCycleDayEl.addEventListener('change', () => {
+        if (payCycleDayEl.value === 'clear') {
+          if (payCycleDateEl) payCycleDateEl.value = '';
+          setCustomPayCycleOptionLabel(payCycleDayEl, '');
+          payCycleDayEl.value = getDefaultPayCycleDayForRole(roleEl?.value || '');
+        }
+        syncCustomPayCycleUi();
+        if (payCycleDayEl.value === 'custom' && payCycleDateEl) {
+          openDatePickerIfAvailable(payCycleDateEl);
+        }
+      });
+    }
+    if (payCycleDateEl) {
+      payCycleDateEl.addEventListener('change', () => {
+        setCustomPayCycleOptionLabel(payCycleDayEl, payCycleDateEl.value);
+      });
+    }
+    if (payCycleDayEl && payCycleDateEl) {
+      payCycleDayEl.addEventListener('focus', () => {
+        if (!isCustomPayCycleSelected(payCycleDayEl.value)) return;
+        setTimeout(() => {
+          openDatePickerIfAvailable(payCycleDateEl);
+        }, 0);
+      });
     }
 
     [has20El, has10HoldEl, hasDebtEl].forEach((el) => {
@@ -2501,6 +2731,7 @@
 
     updateGroupUiFromConditions();
     syncRoleDependentFields();
+    syncCustomPayCycleUi();
 
     form.onsubmit = async (e) => {
       e.preventDefault();
@@ -2510,14 +2741,19 @@
       const selectedGroups = getSelectedGroups();
       const resolvedPayrollGroup = resolvePayrollGroupForSubmit();
 
+      const customPayCycle = isCustomPayCycleSelected(document.getElementById('empPayCycleDay')?.value || '');
+      const customPayCycleDate = String(document.getElementById('empPayCycleDate')?.value || '').trim();
+      const resolvedPayCycleDay = customPayCycle
+        ? derivePayCycleDayFromCustomDate(customPayCycleDate)
+        : Number(document.getElementById('empPayCycleDay')?.value || '20');
+
       const payload = {
         name: document.getElementById('empName').value.trim(),
         phone: document.getElementById('empPhone').value.trim(),
         gender: String(document.getElementById('empGender')?.value || '').trim().toLowerCase(),
         role: String(document.getElementById('empRole')?.value || '').trim().toLowerCase(),
-        worker_tag: String(document.getElementById('empWorkerTag')?.value || '').trim().toLowerCase(),
         meal_mode: String(document.getElementById('empMealMode')?.value || '').trim().toLowerCase(),
-        pay_cycle_day: Number(document.getElementById('empPayCycleDay')?.value || '20'),
+        pay_cycle_day: resolvedPayCycleDay,
         base_salary: Number(document.getElementById('empBaseSalary').value),
         payroll_group: resolvedPayrollGroup,
         start_date: document.getElementById('empStartDate').value || undefined,
@@ -2539,8 +2775,10 @@
         return;
       }
 
-      if (![1, 20].includes(payload.pay_cycle_day)) {
-        if (msg) msg.textContent = 'Pay cycle day must be 1 or 20.';
+      if (!Number.isFinite(payload.pay_cycle_day) || payload.pay_cycle_day < 1 || payload.pay_cycle_day > 28) {
+        if (msg) msg.textContent = customPayCycle
+          ? 'Custom pay-cycle date is required and day must be between 1 and 28.'
+          : 'Pay cycle day must be between 1 and 28.';
         saveBtn.disabled = false;
         return;
       }

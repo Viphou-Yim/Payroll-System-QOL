@@ -18,7 +18,7 @@ const PayrollRecordSchema = new mongoose.Schema({
   withheld_amount: { type: Number, default: 0 },
   carryover_savings: { type: Number, default: 0 },
   get_together_contribution: { type: Number, default: 0 },
-  pay_cycle_day: { type: Number, enum: [1, 20], default: 20 },
+  pay_cycle_day: { type: Number, min: 1, max: 28, default: 20 },
   pay_period_start: { type: Date },
   pay_period_end: { type: Date }
 }, { timestamps: true });

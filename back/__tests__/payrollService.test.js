@@ -111,4 +111,59 @@ describe('payrollService.calculatePayrollForEmployee', () => {
     expect(res.withheld).toBe(10000);
     expect(res.carryoverSavings).toBe(500);
   });
+
+  test('Mid-period salary change is prorated by effective date for worked days', () => {
+    const emp = {
+      base_salary: 30000,
+      salary_history: [{ amount: 36000, effective_from: '2026-01-16' }],
+      has_20_deduction: false,
+      has_10day_holding: false
+    };
+
+    const res = calculatePayrollForEmployee({
+      employee: emp,
+      daysWorked: 30,
+      staticDeductions: [],
+      saving: null,
+      config: {
+        roundDecimals: 2,
+        payPeriodStart: '2026-01-01',
+        payPeriodEnd: '2026-01-30',
+        useDailyRateForPartialMonth: true
+      }
+    });
+
+    // 15 days at 30000 + 15 days at 36000
+    expect(res.gross).toBe(33000);
+    expect(res.net).toBe(33000);
+  });
+
+  test('Multiple salary changes in one period are segmented correctly', () => {
+    const emp = {
+      base_salary: 30000,
+      salary_history: [
+        { amount: 33000, effective_from: '2026-01-11' },
+        { amount: 36000, effective_from: '2026-01-21' }
+      ],
+      has_20_deduction: false,
+      has_10day_holding: false
+    };
+
+    const res = calculatePayrollForEmployee({
+      employee: emp,
+      daysWorked: 30,
+      staticDeductions: [],
+      saving: null,
+      config: {
+        roundDecimals: 2,
+        payPeriodStart: '2026-01-01',
+        payPeriodEnd: '2026-01-30',
+        useDailyRateForPartialMonth: true
+      }
+    });
+
+    // 10 days each at 30000, 33000, 36000
+    expect(res.gross).toBe(33000);
+    expect(res.net).toBe(33000);
+  });
 });
