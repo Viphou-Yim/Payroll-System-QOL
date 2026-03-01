@@ -20,6 +20,13 @@ const EmployeeSchema = new mongoose.Schema({
   pay_cycle_day: { type: Number, min: 1, max: 28, default: 20 },
   get_together_balance: { type: Number, default: 0 },
   base_salary: { type: Number, required: true },
+  salary_history: {
+    type: [{
+      amount: { type: Number, required: true, min: 0 },
+      effective_from: { type: Date, required: true }
+    }],
+    default: []
+  },
   payroll_group: { type: String, required: true }, //"cut", "no-cut", "monthly"
   has_20_deduction: { type: Boolean, default: false },
   has_10day_holding: { type: Boolean, default: false },

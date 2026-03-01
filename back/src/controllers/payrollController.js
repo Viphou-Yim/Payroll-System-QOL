@@ -61,6 +61,31 @@ function parseDateOnly(value) {
   return parsed;
 }
 
+function normalizeSalaryHistoryInput(input) {
+  if (input === undefined) return { provided: false, value: undefined, error: '' };
+  if (!Array.isArray(input)) {
+    return { provided: true, value: undefined, error: 'salary_history must be an array' };
+  }
+
+  const normalized = [];
+  for (const row of input) {
+    const amount = Number(row?.amount);
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { provided: true, value: undefined, error: 'salary_history.amount must be a non-negative number' };
+    }
+
+    const effectiveFrom = parseDateOnly(row?.effective_from);
+    if (!effectiveFrom) {
+      return { provided: true, value: undefined, error: 'salary_history.effective_from must be a valid date (YYYY-MM-DD)' };
+    }
+
+    normalized.push({ amount, effective_from: effectiveFrom });
+  }
+
+  normalized.sort((a, b) => a.effective_from - b.effective_from);
+  return { provided: true, value: normalized, error: '' };
+}
+
 const EMPLOYEE_ROLES = ['employee', 'worker', 'manager', 'car_driver', 'tuk_tuk_driver'];
 
 function normalizeEmployeeRole(roleValue) {
@@ -319,6 +344,8 @@ async function generatePayrollForMonth(req, res) {
           applyHolding: applyHoldingForEmployee,
           applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
           useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
+          payPeriodStart: attendanceSummary.periodStart,
+          payPeriodEnd: attendanceSummary.periodEnd,
           payrollGroup: payroll_group
         }
       });
@@ -449,6 +476,8 @@ async function generatePayrollForEmployee(req, res) {
         applyHolding: applyHoldingForEmployee,
         applySavings: employmentPeriodConfig.applyProfileDeductionsAndSavings,
         useDailyRateForPartialMonth: employmentPeriodConfig.useDailyRateForPartialMonth,
+        payPeriodStart: attendanceSummary.periodStart,
+        payPeriodEnd: attendanceSummary.periodEnd,
         payrollGroup: empPayrollGroup
       }
     });
@@ -774,6 +803,7 @@ async function updateEmployee(req, res) {
       meal_mode,
       pay_cycle_day,
       base_salary,
+      salary_history,
       payroll_group,
       has_20_deduction,
       has_10day_holding,
@@ -793,9 +823,11 @@ async function updateEmployee(req, res) {
     const nextHas20 = has_20_deduction === undefined ? !!employee.has_20_deduction : !!has_20_deduction;
     const nextHas10dayHolding = has_10day_holding === undefined ? !!employee.has_10day_holding : !!has_10day_holding;
     const nextHasDebt = has_debt_deduction === undefined ? !!employee.has_debt_deduction : !!has_debt_deduction;
+    const salaryHistoryResult = normalizeSalaryHistoryInput(salary_history);
 
     if (!nextName) return res.status(400).json({ message: 'name is required' });
     if (Number.isNaN(nextBaseSalary)) return res.status(400).json({ message: 'base_salary must be a number' });
+    if (salaryHistoryResult.error) return res.status(400).json({ message: salaryHistoryResult.error });
     if (nextGender && !['male', 'female'].includes(nextGender)) {
       return res.status(400).json({ message: 'gender must be one of: male, female' });
     }
@@ -845,6 +877,9 @@ async function updateEmployee(req, res) {
 
     if (start_date !== undefined) {
       update.start_date = start_date ? new Date(start_date) : null;
+    }
+    if (salaryHistoryResult.provided) {
+      update.salary_history = salaryHistoryResult.value;
     }
 
     const updated = await Employee.findByIdAndUpdate(id, update, { new: true, runValidators: true })
@@ -1014,6 +1049,7 @@ async function createEmployee(req, res) {
       meal_mode,
       pay_cycle_day,
       base_salary,
+      salary_history,
       payroll_group,
       has_20_deduction = false,
       has_10day_holding = false,
@@ -1025,6 +1061,10 @@ async function createEmployee(req, res) {
     if (!name || typeof name !== 'string') return res.status(400).json({ message: 'name is required' });
     if (base_salary === undefined || base_salary === null || Number.isNaN(Number(base_salary))) {
       return res.status(400).json({ message: 'base_salary is required and must be a number' });
+    }
+    const salaryHistoryResult = normalizeSalaryHistoryInput(salary_history);
+    if (salaryHistoryResult.error) {
+      return res.status(400).json({ message: salaryHistoryResult.error });
     }
     const pg = String(payroll_group || '').trim();
     if (!pg) return res.status(400).json({ message: 'payroll_group is required' });
@@ -1078,6 +1118,7 @@ async function createEmployee(req, res) {
       meal_mode: normalizedMealMode || undefined,
       pay_cycle_day: resolvedPayCycleDay,
       base_salary: Number(base_salary),
+      salary_history: salaryHistoryResult.provided ? salaryHistoryResult.value : [],
       payroll_group: pg,
       has_20_deduction: has20,
       has_10day_holding: has10dayHolding,

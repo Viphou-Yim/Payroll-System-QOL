@@ -20,6 +20,118 @@ function roundUp(value, decimals) {
   return Math.ceil(value * factor) / factor;
 }
 
+function toUtcDateOnly(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+function addUtcDays(date, days) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+
+function getDaysInclusive(startDate, endDate) {
+  return Math.floor((endDate - startDate) / 86400000) + 1;
+}
+
+function normalizeSalaryHistory(salaryHistory = []) {
+  return (Array.isArray(salaryHistory) ? salaryHistory : [])
+    .map((entry) => ({
+      amount: Number(entry?.amount),
+      effectiveFrom: toUtcDateOnly(entry?.effective_from)
+    }))
+    .filter((entry) => Number.isFinite(entry.amount) && entry.amount >= 0 && entry.effectiveFrom)
+    .sort((a, b) => a.effectiveFrom - b.effectiveFrom);
+}
+
+function getEffectiveSalaryAtDate({ baseSalary, history, targetDate }) {
+  let amount = baseSalary;
+  for (const row of history) {
+    if (row.effectiveFrom <= targetDate) {
+      amount = row.amount;
+      continue;
+    }
+    break;
+  }
+  return amount;
+}
+
+function buildSalarySegments({ baseSalary, salaryHistory = [], periodStart, periodEnd }) {
+  const start = toUtcDateOnly(periodStart);
+  const end = toUtcDateOnly(periodEnd);
+  if (!start || !end || end < start) return [];
+
+  const history = normalizeSalaryHistory(salaryHistory);
+  const starts = [start.getTime()];
+
+  for (const row of history) {
+    if (row.effectiveFrom > start && row.effectiveFrom <= end) {
+      starts.push(row.effectiveFrom.getTime());
+    }
+  }
+
+  const sortedStarts = Array.from(new Set(starts)).sort((a, b) => a - b);
+  const segments = [];
+
+  for (let index = 0; index < sortedStarts.length; index += 1) {
+    const segmentStart = new Date(sortedStarts[index]);
+    const nextStart = sortedStarts[index + 1] ? new Date(sortedStarts[index + 1]) : null;
+    const segmentEnd = nextStart ? addUtcDays(nextStart, -1) : end;
+    if (segmentEnd < segmentStart) continue;
+
+    const days = getDaysInclusive(segmentStart, segmentEnd);
+    const amount = getEffectiveSalaryAtDate({ baseSalary, history, targetDate: segmentStart });
+    segments.push({
+      startDate: segmentStart,
+      endDate: segmentEnd,
+      days,
+      amount
+    });
+  }
+
+  return segments;
+}
+
+function calculateSegmentedGross({
+  baseSalary,
+  salaryHistory,
+  periodStart,
+  periodEnd,
+  normalizedWorkedDays,
+  useDailyRateForPartialMonth,
+  roundDecimals
+}) {
+  const segments = buildSalarySegments({
+    baseSalary,
+    salaryHistory,
+    periodStart,
+    periodEnd
+  });
+
+  if (!segments.length) {
+    let gross = baseSalary;
+    if (useDailyRateForPartialMonth && normalizedWorkedDays < 30) {
+      gross = (baseSalary / 30) * normalizedWorkedDays;
+    }
+    return round(gross, roundDecimals);
+  }
+
+  const totalPeriodDays = segments.reduce((sum, segment) => sum + segment.days, 0);
+  if (!totalPeriodDays) return round(baseSalary, roundDecimals);
+
+  const shouldUseWorkedDays = useDailyRateForPartialMonth;
+  let gross = 0;
+  for (const segment of segments) {
+    const workedDaysForSegment = shouldUseWorkedDays
+      ? (normalizedWorkedDays * segment.days) / totalPeriodDays
+      : segment.days;
+    gross += (segment.amount / 30) * workedDaysForSegment;
+  }
+
+  return round(gross, roundDecimals);
+}
+
 function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeductions = [], saving = null, bonuses = [], config = {} }) {
   const roundDecimals = typeof config.roundDecimals === 'number' ? config.roundDecimals : 2;
   const workedDaysDecimals = typeof config.workedDaysDecimals === 'number' ? config.workedDaysDecimals : 1;
@@ -32,14 +144,20 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
   const useDailyRateForPartialMonth = typeof config.useDailyRateForPartialMonth === 'boolean' ? config.useDailyRateForPartialMonth : true;
   // payroll group (e.g., 'cut', 'no-cut', 'monthly')
   const payrollGroup = typeof config.payrollGroup === 'string' ? config.payrollGroup : 'cut';
+  const payPeriodStart = config.payPeriodStart || null;
+  const payPeriodEnd = config.payPeriodEnd || null;
 
   const base = employee.base_salary;
   const normalizedWorkedDays = roundDown(Math.max(0, Number(daysWorked) || 0), workedDaysDecimals);
-  let gross = base;
-  if (useDailyRateForPartialMonth && normalizedWorkedDays < 30) {
-    gross = (base / 30) * normalizedWorkedDays;
-  }
-  gross = round(gross, roundDecimals);
+  let gross = calculateSegmentedGross({
+    baseSalary: base,
+    salaryHistory: employee.salary_history,
+    periodStart: payPeriodStart,
+    periodEnd: payPeriodEnd,
+    normalizedWorkedDays,
+    useDailyRateForPartialMonth,
+    roundDecimals
+  });
 
   let totalBonuses = 0;
   for (const b of bonuses || []){
@@ -78,7 +196,7 @@ function calculatePayrollForEmployee({ employee, daysWorked = 0, staticDeduction
 
   let withheld = 0;
   if (applyHolding && employee.has_10day_holding) {
-    const holdAmount = roundUp((base / 30) * holdingDays, roundDecimals);
+    const holdAmount = roundUp((Number(base) / 30) * holdingDays, roundDecimals);
     totalDeductions += holdAmount;
     withheld = holdAmount;
     deductionsApplied.push({ type: 'hold', amount: holdAmount, reason: `${holdingDays} day holding` });
