@@ -121,8 +121,9 @@ function createWindow() {
       : path.join(__dirname, '../assets/icon.png'),
   });
 
-  // Load URL or file based on dev/prod
-  const startUrl = isDev ? FRONTEND_URL : `file://${path.join(FRONTEND_BUILD_PATH, 'index.html')}`;
+  // Load URL based on dev/prod. In production load the backend URL so the app
+  // is served over http(s) and cookies/sessions work correctly (file:// breaks cookies).
+  const startUrl = isDev ? FRONTEND_URL : BACKEND_URL;
   mainWindow.loadURL(startUrl);
 
   // Open DevTools in development
