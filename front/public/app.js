@@ -840,7 +840,8 @@
     if (!selectEl) return;
     const customOpt = Array.from(selectEl.options || []).find((opt) => opt.value === 'custom');
     if (!customOpt) return;
-    customOpt.textContent = 'Custom day…';
+    const pretty = formatDateAsDayOfMonth(dateValue);
+    customOpt.textContent = pretty || 'Custom day…';
   }
 
   function openDatePickerIfAvailable(dateEl) {
