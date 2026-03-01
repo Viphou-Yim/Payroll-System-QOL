@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Payroll Admin (Front)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="/style.css" />
+  <script>window.API_BASE = 'http://localhost:4000';</script>
+</head>
+<body>
+  <h1>Payroll Admin</h1>
+
+  <div class="login">
+    <label>Username: <input id="loginUser" placeholder="admin"/></label>
+    <label>Password: <input id="loginPass" type="password" placeholder="password"/></label>
+    <button id="loginBtn">Login</button>
+    <button id="logoutBtn">Logout</button>
+    <span id="loginStatus"></span>
+  </div>
+
+  <nav>
+    <a href="#attendance">Attendance</a> |
+    <a href="#records">Payroll Records</a> |
+    <a href="#run">Run Payroll</a> |
+    <a href="#scheduler">Scheduler</a> |
+    <a href="#deductions">Deductions</a> |
+    <a href="#savings">Savings</a>
+  </nav>
+
+  <main>
+    <!-- Pages are the same markup as the original admin.html for parity -->
+    <section id="sec-attendance" class="page" data-route="attendance" style="display:none">
+      <div class="section">
+        <h2>Attendance</h2>
+        <label>Employee: <select id="employeeSelect"><option>Loading...</option></select></label>
+        <label>Month (YYYY-MM): <input id="attMonth" placeholder="2026-02"/></label>
+        <label>Days worked: <input id="attDays" type="number" value="0"/></label>
+        <label>Days absent: <input id="attAbsent" type="number" value="0"/></label>
+        <button id="saveAtt">Save Attendance</button>
+        <div id="attMsg"></div>
+      </div>
+    </section>
+
+    <section id="sec-records" class="page" data-route="records" style="display:none">
+      <div class="section">
+        <h2>Payroll Records</h2>
+        <label>Month (YYYY-MM): <input id="recMonth" placeholder="2026-02"/></label>
+        <button id="loadRecords">Load Records</button>
+        <button id="exportCsv">Export CSV (client)</button>
+        <button id="exportServerCsv">Export CSV (server)</button>
+        <div id="recordsList"></div>
+        <div id="recordDetails" style="margin-top:10px; white-space: pre-wrap; background:#f9f9f9; padding:8px; display:none"></div>
+      </div>
+    </section>
+
+    <section id="sec-run" class="page" data-route="run" style="display:none">
+      <div class="section">
+        <h2>Run Payroll for Employee</h2>
+        <label>Employee: <select id="runEmployeeSelect"><option>Loading...</option></select></label>
+        <label>Month (YYYY-MM): <input id="runMonth" placeholder="2026-02"/></label>
+        <label>Idempotency-Key (optional): <input id="runIdemp" placeholder="optional key"/></label>
+        <label><input type="checkbox" id="runForce"/> Force</label>
+        <button id="runPayrollEmp">Run Payroll</button>
+        <div id="runResp"></div>
+      </div>
+    </section>
+
+    <section id="sec-scheduler" class="page" data-route="scheduler" style="display:none">
+      <div class="section">
+        <h2>Scheduler</h2>
+        <label>Payroll group: <input id="schedGroup" value="cut"/></label>
+        <label>Cron expression: <input id="schedExpr" value="0 5 1 * *"/></label>
+        <button id="startSched">Start</button>
+        <button id="stopSched">Stop</button>
+        <button id="statusSched">Status</button>
+        <div id="schedMsg"></div>
+      </div>
+    </section>
+
+    <section id="sec-deductions" class="page" data-route="deductions" style="display:none">
+      <div class="section">
+        <h2>Deductions</h2>
+        <label>Employee: <select id="dedEmployeeSelect"><option>Loading...</option></select></label>
+        <label>Type: <select id="dedType"><option value="debt">debt</option><option value="damage">damage</option><option value="monthly_debt">monthly_debt</option><option value="other">other</option></select></label>
+        <label>Amount: <input id="dedAmount" type="number"/></label>
+        <label>Month (YYYY-MM): <input id="dedMonth" placeholder="2026-02"/></label>
+        <label>Reason: <input id="dedReason"/></label>
+        <button id="createDed">Create Deduction</button>
+        <button id="loadDeds">Load Deductions</button>
+        <div id="dedList"></div>
+      </div>
+    </section>
+
+    <section id="sec-savings" class="page" data-route="savings" style="display:none">
+      <div class="section">
+        <h2>Savings</h2>
+        <button id="loadSavings">Load Savings</button>
+        <div id="savingsList"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

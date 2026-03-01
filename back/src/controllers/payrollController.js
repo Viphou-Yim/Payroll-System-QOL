@@ -16,20 +16,34 @@ const Bonuses = require('../models/Bonuses')
 const Saving = require('../models/Saving');
 const PayrollRecord = require('../models/PayrollRecord');
 const payrollService = require('../services/payrollService');
-const cron = require('node-cron');
+const schedulerService = require('../services/schedulerService');
 
 // Configurable defaults
 const ROUND_DECIMALS = parseInt(process.env.ROUND_DECIMALS || '2', 10);
 const CUT_GROUP_20_DEDUCTION_AMOUNT = parseFloat(process.env.CUT_GROUP_20_DEDUCTION_AMOUNT || '20');
 const CUT_GROUP_10DAY_HOLDING_DAYS = parseFloat(process.env.CUT_GROUP_10DAY_HOLDING_DAYS || '10');
 
-let schedulerJob = null;
 
 // Main function: displays payroll for a month for a specific payroll group
+const Idempotency = require('../models/Idempotency');
+
+function isValidMonth(month) {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(month);
+}
+
 async function generatePayrollForMonth(req, res) {
   try {
-    const { month, payroll_group } = req.body;
+    const { month, payroll_group, force = false } = req.body;
+    const idempotencyKey = (req.headers['idempotency-key'] || req.headers['Idempotency-Key'] || '').toString();
+
     if (!month || !payroll_group) return res.status(400).json({ message: 'month and payroll_group are required (month as YYYY-MM).' });
+    if (!isValidMonth(month)) return res.status(400).json({ message: 'month must be YYYY-MM' });
+
+    // If Idempotency-Key provided and not force, ensure not re-processing
+    if (idempotencyKey && !force) {
+      const existingId = await Idempotency.findOne({ key: idempotencyKey, payroll_group, month });
+      if (existingId) return res.status(409).json({ message: 'Duplicate request (idempotency key) - already processed' });
+    }
 
     // Determine whether cut rules (flat $20 / holding) should be applied for this payroll group
     const applyCutsForGroup = payroll_group !== 'no-cut';
@@ -38,6 +52,25 @@ async function generatePayrollForMonth(req, res) {
     const results = [];
 
     for (const emp of employees) {
+      // Idempotency: skip if payroll already exists unless force is true
+      const existing = await PayrollRecord.findOne({ employee: emp._id, month });
+      if (existing && !force) {
+        results.push({ employee: emp._id, skipped: true, reason: 'already_generated' });
+        continue;
+      }
+
+      // If force=true, revert previous state and delete existing
+      if (existing && force) {
+        const savingRec = await Saving.findOne({ employee: emp._id });
+        if (savingRec && typeof existing.carryover_savings === 'number') {
+          const prev = Math.max(0, (existing.carryover_savings || 0) - (savingRec.amount || 0));
+          savingRec.accumulated_total = prev;
+          await savingRec.save();
+        }
+        await Deduction.deleteMany({ employee: emp._id, month, type: 'hold' });
+        await PayrollRecord.deleteMany({ employee: emp._id, month });
+      }
+
       const attendance = await Attendance.findOne({ employee: emp._id, month });
       const daysWorked = attendance ? attendance.days_worked : 0;
       const bonuses = await Bonuses.find({ employee: emp._id, month });
@@ -45,7 +78,7 @@ async function generatePayrollForMonth(req, res) {
       const staticDeds = await Deduction.find({ employee: emp._id, month });
       const saving = await Saving.findOne({ employee: emp._id });
 
-        const calc = payrollService.calculatePayrollForEmployee({
+      const calc = payrollService.calculatePayrollForEmployee({
         employee: emp,
         daysWorked,
         staticDeductions: staticDeds,
@@ -84,12 +117,19 @@ async function generatePayrollForMonth(req, res) {
 
       // If this is a monthly payroll run and monthly_debt entries were applied, remove the monthly_debt deduction records for this month
       if (payroll_group === 'monthly' && daysWorked >= 30) {
-        const monthlyDebtDeleted = await Deduction.deleteMany({ employee: emp._id, month, type: 'monthly_debt' });
-        // Add a note to deductionsApplied if the service didn't include it (it will already be included when applied)
-        // (we keep this to ensure applied monthly debts are removed from future runs)
+        await Deduction.deleteMany({ employee: emp._id, month, type: 'monthly_debt' });
       }
 
       results.push({ employee: emp._id, payrollRecord });
+    }
+
+    // Save idempotency record for this run
+    if (idempotencyKey) {
+      await Idempotency.findOneAndUpdate(
+        { key: idempotencyKey },
+        { key: idempotencyKey, payroll_group, month, createdAt: new Date() },
+        { upsert: true }
+      );
     }
 
     return res.json({ month, payroll_group, count: results.length, results });
@@ -102,11 +142,37 @@ async function generatePayrollForMonth(req, res) {
 // Single employee payroll run
 async function generatePayrollForEmployee(req, res) {
   try {
-    const { employeeId, month } = req.body;
+    const { employeeId, month, force = false, idempotencyKey = '' } = req.body;
+    const headerKey = (req.headers['idempotency-key'] || req.headers['Idempotency-Key'] || '').toString();
+    const keyToUse = idempotencyKey || headerKey;
+
     if (!employeeId || !month) return res.status(400).json({ message: 'employeeId and month are required.' });
+    if (!isValidMonth(month)) return res.status(400).json({ message: 'month must be YYYY-MM' });
 
     const emp = await Employee.findById(employeeId);
     if (!emp) return res.status(404).json({ message: 'Employee not found' });
+
+    // Idempotency check: skip if payroll exists for this employee+month unless force
+    const existing = await PayrollRecord.findOne({ employee: emp._id, month });
+    if (existing && !force) return res.status(409).json({ message: 'Payroll already generated for this employee and month. Use force=true to override.' });
+
+    // If Idempotency-Key provided and not force, ensure not re-processing
+    if (keyToUse && !force) {
+      const existingId = await Idempotency.findOne({ key: keyToUse, payroll_group: emp.payroll_group || 'cut', month });
+      if (existingId) return res.status(409).json({ message: 'Duplicate request (idempotency key) - already processed' });
+    }
+
+    if (existing && force) {
+      // revert saving and remove holds before re-running
+      const savingRec = await Saving.findOne({ employee: emp._id });
+      if (savingRec && typeof existing.carryover_savings === 'number') {
+        const prev = Math.max(0, (existing.carryover_savings || 0) - (savingRec.amount || 0));
+        savingRec.accumulated_total = prev;
+        await savingRec.save();
+      }
+      await Deduction.deleteMany({ employee: emp._id, month, type: 'hold' });
+      await PayrollRecord.deleteMany({ employee: emp._id, month });
+    }
 
     // Use the employee's payroll_group to decide whether cut rules apply (default to 'cut')
     const empPayrollGroup = emp.payroll_group || 'cut';
@@ -159,6 +225,15 @@ async function generatePayrollForEmployee(req, res) {
       await Deduction.deleteMany({ employee: emp._id, month, type: 'monthly_debt' });
     }
 
+    // Persist idempotency record for this run if key provided
+    if (keyToUse) {
+      await Idempotency.findOneAndUpdate(
+        { key: keyToUse },
+        { key: keyToUse, payroll_group: empPayrollGroup, month, createdAt: new Date() },
+        { upsert: true }
+      );
+    }
+
     return res.json({ payrollRecord });
   } catch (err) {
     console.error(err);
@@ -166,38 +241,47 @@ async function generatePayrollForEmployee(req, res) {
   }
 }
 
-// Scheduler: start monthly job (defaults to run at 05:00 on day 1)
-function startMonthlyScheduler(req, res) {
-  const { payroll_group, cronExpression } = req.body;
-  const group = payroll_group || 'cut';
-  const expr = cronExpression || '0 5 1 * *'; // at 05:00 on day 1 of every month
+// Scheduler: start monthly job (persisted)
+async function startMonthlyScheduler(req, res) {
+  try {
+    const { payroll_group, cronExpression } = req.body;
+    const group = payroll_group || 'cut';
+    const expr = cronExpression || '0 5 1 * *'; // at 05:00 on day 1 of every month
 
-  if (schedulerJob) return res.status(400).json({ message: 'Scheduler already running' });
+    // start & persist scheduler via service; provide job runner
+    const cfg = await schedulerService.start({
+      payroll_group: group,
+      cronExpression: expr,
+      jobRunner: async (groupName) => {
+        const month = new Date().toISOString().slice(0,7);
+        console.log('Running scheduled payroll for', groupName, 'month', month);
+        await module.exports.generatePayrollForMonth({ body: { month, payroll_group: groupName } }, { json: () => {} });
+      }
+    });
 
-  schedulerJob = cron.schedule(expr, async () => {
-    console.log('Running scheduled payroll for', group);
-    try {
-      const month = new Date().toISOString().slice(0,7); // YYYY-MM
-      await generatePayrollForMonth({ body: { month, payroll_group: group } }, { json: () => {} });
-    } catch (err) {
-      console.error('Scheduled run error', err);
-    }
-  });
-
-  return res.json({ message: 'Scheduler started', cron: expr, payroll_group: group });
+    return res.json({ message: 'Scheduler started', cron: cfg.cronExpression, payroll_group: cfg.payroll_group });
+  } catch (err) {
+    console.error('startMonthlyScheduler error', err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
 }
 
-function stopScheduler(req, res) {
-  if (schedulerJob) {
-    schedulerJob.stop();
-    schedulerJob = null;
-    return res.json({ message: 'Scheduler stopped' });
+async function stopScheduler(req, res) {
+  try {
+    const { payroll_group } = req.body || {};
+    const group = payroll_group || 'cut';
+    const cfg = await schedulerService.stop(group);
+    if (!cfg) return res.status(400).json({ message: 'No scheduler found for group' });
+    return res.json({ message: 'Scheduler stopped', payroll_group: cfg.payroll_group });
+  } catch (err) {
+    console.error('stopScheduler error', err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
   }
-  return res.status(400).json({ message: 'No scheduler running' });
 }
 
 function getSchedulerStatus(req, res) {
-  return res.json({ running: !!schedulerJob });
+  const { payroll_group } = req.query;
+  return res.json(schedulerService.getStatus(payroll_group));
 }
 
 async function getPayrollRecords(req, res) {
@@ -205,6 +289,43 @@ async function getPayrollRecords(req, res) {
   const query = month ? { month } : {};
   const records = await PayrollRecord.find(query).populate('employee');
   res.json(records);
+}
+
+// Server-side CSV export for payroll records. Supports ?month=YYYY-MM
+async function exportPayrollCsv(req, res) {
+  try {
+    const { month } = req.query;
+    if (!month) return res.status(400).json({ message: 'month is required (YYYY-MM)' });
+
+    const query = { month };
+    const records = await PayrollRecord.find(query).populate('employee');
+
+    const header = ['Employee','EmployeeId','Month','Gross','TotalDeductions','Net','Withheld','CarryoverSavings','Bonuses','DeductionsJSON'];
+    const rows = [header.join(',')];
+
+    for (const r of records) {
+      const emp = r.employee ? r.employee.name : (r.employee || '');
+      const empId = r.employee && r.employee._id ? r.employee._id : (r.employee || '');
+      const deductionsJson = JSON.stringify(r.deductions || []);
+      const cells = [emp, empId, r.month, r.gross_salary, r.total_deductions, r.net_salary, r.withheld_amount, r.carryover_savings, r.bonuses, deductionsJson];
+      const escaped = cells.map(v => {
+        if (v === null || v === undefined) return '';
+        const s = typeof v === 'string' ? v : String(v);
+        if (s.includes(',') || s.includes('\n') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+      });
+      rows.push(escaped.join(','));
+    }
+
+    const csv = rows.join('\n');
+    const filename = `payroll_records_${month}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(csv);
+  } catch (err) {
+    console.error('exportPayrollCsv error', err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
 }
 
 // Undo payroll for a month: delete payroll records, remove holds created for that month, and revert savings
@@ -278,6 +399,17 @@ async function getHolds(req, res) {
   res.json(holds);
 }
 
+// Employees list for admin UI
+async function listEmployees(req, res) {
+  try {
+    const employees = await Employee.find({ active: true }).select('_id name payroll_group');
+    return res.json(employees);
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
 // delete a hold payroll by id
 async function clearHold(req, res) {
   try {
@@ -286,6 +418,45 @@ async function clearHold(req, res) {
     const d = await Deduction.findByIdAndDelete(deductionId);
     if (!d) return res.status(404).json({ message: 'Hold not found' });
     return res.json({ message: 'Hold cleared', deduction: d });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+// Attendance endpoints
+async function upsertAttendance(req, res) {
+  try {
+    const { employeeId, month, days_worked, days_absent = 0 } = req.body;
+    if (!employeeId || !month || typeof days_worked !== 'number') return res.status(400).json({ message: 'employeeId, month, and days_worked (number) are required' });
+    if (!isValidMonth(month)) return res.status(400).json({ message: 'month must be YYYY-MM' });
+    if (days_worked < 0 || days_worked > 31) return res.status(400).json({ message: 'days_worked must be between 0 and 31' });
+    if (days_absent < 0) return res.status(400).json({ message: 'days_absent must be non-negative' });
+
+    // ensure employee exists
+    const emp = await Employee.findById(employeeId);
+    if (!emp) return res.status(404).json({ message: 'Employee not found' });
+
+    const rec = await Attendance.findOneAndUpdate(
+      { employee: employeeId, month },
+      { days_worked, days_absent },
+      { upsert: true, new: true }
+    );
+    return res.json({ message: 'Attendance saved', record: rec });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Internal error', error: err.message });
+  }
+}
+
+async function listAttendance(req, res) {
+  try {
+    const { employeeId, month } = req.query;
+    const q = {};
+    if (employeeId) q.employee = employeeId;
+    if (month) q.month = month;
+    const list = await Attendance.find(q).populate('employee');
+    return res.json(list);
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Internal error', error: err.message });
@@ -431,6 +602,8 @@ module.exports = {
   clearHold,
   getSavings,
   updateSaving,
+  upsertAttendance,
+  listAttendance,
   createDeduction,
   listDeductions,
   updateDeduction,

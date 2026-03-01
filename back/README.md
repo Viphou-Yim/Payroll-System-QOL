@@ -33,14 +33,20 @@ Creating monthly debts
 
 New endpoints
 
-- POST `/api/payroll/generate/employee` → run payroll for a single employee. Body: `{ "employeeId": "<id>", "month": "YYYY-MM" }`
-- POST `/api/payroll/schedule/start` → start monthly scheduler (body `{ "payroll_group": "cut", "cronExpression": "0 5 1 * *" }` optional).
-- POST `/api/payroll/schedule/stop` → stop the scheduler.- POST `/api/payroll/undo` → undo payroll for a month. Body: `{ "month": "YYYY-MM" }`
+- POST `/api/payroll/generate/employee` → run payroll for a single employee. Body: `{ "employeeId": "<id>", "month": "YYYY-MM" }` (supports `force: true` to overwrite existing payroll and accepts `Idempotency-Key` header or body `idempotencyKey`)
+- POST `/api/payroll/schedule/start` → start monthly scheduler (body `{ "payroll_group": "cut", "cronExpression": "0 5 1 * *" }` optional). Scheduler config is persisted to DB so jobs survive restarts.
+- POST `/api/payroll/schedule/stop` → stop the scheduler. POST `/api/payroll/undo` → undo payroll for a month. Body: `{ "month": "YYYY-MM" }`
 - POST `/api/payroll/recalculate` → undo+re-run for a month. Body: `{ "month": "YYYY-MM", "payroll_group": "cut" }`
 - GET `/api/payroll/holds?month=YYYY-MM` → list holds. POST `/api/payroll/holds/clear` body `{ deductionId }` clears a hold.
 - GET `/api/payroll/savings` → list savings. POST `/api/payroll/savings/:employeeId` body `{ amount?, resetAccumulated? }` updates saving.
+- Attendance endpoints: POST `/api/payroll/attendance` body `{ employeeId, month, days_worked, days_absent? }` to create/update attendance. GET `/api/payroll/attendance?employeeId=&month=` to list.
+- Admin UI: visit `/admin.html` to manage attendance, view payroll records, run payroll for a single employee, and export payroll records to CSV.
+- Login: POST `/api/auth/login` with `{ username, password }` (defaults to `ADMIN_USER=admin` and `ADMIN_PASSWORD=password` from `.env`). Session is stored in a cookie (no tokens needed). Use `/api/auth/logout` to sign out.
+- Roles: `ADMIN_ROLE` (default `admin`) applied to the env-based login; endpoints require a logged-in session with the appropriate role. For convenience the old `ADMIN_API_KEY` header is still supported as a fallback.
+
 Tests
 
 - Unit tests for payroll calculation are in `back/__tests__/payrollService.test.js`. Run with: `cd back && npm test`.
+- I added endpoint tests for attendance and scheduler flows.
 
-If you want me to add endpoint-level tests or a persistent scheduler storage, I can add that next.
+If you want, I can add a small attendance UI or enable a persisted scheduler dashboard in the admin UI next.
