@@ -828,9 +828,10 @@
 
   function formatDateAsDdMmYyyy(dateValue) {
     if (!dateValue) return '';
-    const [year, month, day] = String(dateValue).split('-');
-    if (!year || !month || !day) return '';
-    return `${day}/${month}/${year}`;
+    const [, , day] = String(dateValue).split('-');
+    const dayNumber = Number(day);
+    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 31) return '';
+    return `Day ${dayNumber}`;
   }
 
   const CUSTOM_PAY_CYCLE_DISPLAY_VALUE = '__custom_selected__';
@@ -856,6 +857,7 @@
     const displayOpt = existingDisplayOpt || document.createElement('option');
     displayOpt.value = CUSTOM_PAY_CYCLE_DISPLAY_VALUE;
     displayOpt.textContent = pretty;
+    displayOpt.disabled = true;
     if (!existingDisplayOpt) {
       selectEl.insertBefore(displayOpt, customOpt);
     }
@@ -891,7 +893,7 @@
       selectEl.value = getDefaultPayCycleDayForRole($('employeeEditRole')?.value || '');
     }
 
-    const isCustom = selectEl.value === 'custom';
+    const isCustom = isCustomPayCycleSelected(selectEl.value);
     if (dateEl) {
       dateEl.disabled = !isCustom;
       dateEl.style.display = 'none';
@@ -2532,7 +2534,7 @@
 
     function syncCustomPayCycleUi() {
       if (!payCycleDateEl) return;
-      const enabled = payCycleDayEl?.value === 'custom';
+      const enabled = isCustomPayCycleSelected(payCycleDayEl?.value || '');
       payCycleDateEl.disabled = !enabled;
       payCycleDateEl.style.display = 'none';
       if (!enabled) {
